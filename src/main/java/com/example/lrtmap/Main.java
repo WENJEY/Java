@@ -7,7 +7,7 @@ import java.util.Scanner;
 
 public class Main {
 
-    private static final Graph graph = new Graph();
+    private static final Graph graph = new JsonGraph();
     private static final String DATA_FILE = "lrt_data.json";
     private static final int STATION_PER_ROW = 5;
     private static final int EDGE_PER_ROW = 3;
@@ -430,9 +430,14 @@ public class Main {
                     String previous = (idx > 0) ? stationsOnLine.get(idx - 1) : "None (start of the line)";
                     String next = (idx < stationsOnLine.size() - 1) ? stationsOnLine.get(idx + 1) : "None (end of the line)";
 
-                    System.out.println("\n  Line: " + lineName);
-                    System.out.println("    Previous station : " + previous);
-                    System.out.println("    Next station     : " + next);
+                    System.out.println("\nLine: " + lineName);
+                    System.out.println("Previous station : " + previous);
+                    System.out.println("Next station     : " + next);
+
+                    List<String> dfsPath = graph.dfsToLastStation(lineName, actualName);
+                    if (!dfsPath.isEmpty()) {
+                        System.out.println("DFS to last station on this line : " + String.join(" -> ", dfsPath));
+                    }
                 }
             }
         }
