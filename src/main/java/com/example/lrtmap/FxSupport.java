@@ -16,7 +16,8 @@ public final class FxSupport extends Application {
     private static final AtomicBoolean STARTED = new AtomicBoolean(false);
     private static final CountDownLatch READY = new CountDownLatch(1);
 
-    private FxSupport() {
+    /** Required by JavaFX Application.launch — must be public no-arg. */
+    public FxSupport() {
     }
 
     public static void run(Runnable action) {
