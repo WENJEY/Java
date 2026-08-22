@@ -6,7 +6,7 @@ import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.Separator;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
@@ -22,14 +22,13 @@ import java.util.List;
 
 /**
  * Result window opened after a CLI search succeeds.
- * Input stays in the console; this page only displays DFS or BFS paths.
+ * Input stays in the console; this page displays the full DFS or BFS path.
  */
 public final class SearchView {
 
     private static final String BG = "#1e1e2e";
     private static final String SURFACE = "#313244";
     private static final String TEXT = "#cdd6f4";
-    private static final String ACCENT = "#89b4fa";
     private static final String MUTED = "#a6adc8";
     private static final String SUCCESS = "#a6e3a1";
     private static final String DFS_COLOR = "#cba6f7";
@@ -74,11 +73,14 @@ public final class SearchView {
         root.setStyle("-fx-background-color: " + BG + ";");
         VBox.setVgrow(content, Priority.ALWAYS);
 
-        Scene scene = new Scene(root, 720, 480);
+        Scene scene = new Scene(root, 780, 620);
         currentStage.setTitle(title);
         currentStage.setScene(scene);
+        currentStage.setAlwaysOnTop(true);
+        currentStage.setIconified(false);
         currentStage.show();
         currentStage.toFront();
+        currentStage.requestFocus();
     }
 
     private static Node buildDfsPane(String station, List<DfsLineResult> lineResults) {
@@ -88,7 +90,7 @@ public final class SearchView {
 
         pane.getChildren().add(header("DFS", "Depth-First Search", DFS_COLOR));
         pane.getChildren().add(titleLabel("Station: " + station, TEXT, 20, true));
-        pane.getChildren().add(muted("Previous / next stations on each line, plus DFS to the last station."));
+        pane.getChildren().add(muted("Previous / next stations on each line, plus the full DFS path."));
 
         for (DfsLineResult result : lineResults) {
             VBox card = card();
@@ -100,9 +102,10 @@ public final class SearchView {
                 card.getChildren().add(muted("No DFS path on this line."));
             } else {
                 card.getChildren().add(titleLabel(
-                        "DFS to last station (" + result.dfsPath.size() + " stations)",
+                        "DFS to last station — all " + result.dfsPath.size() + " stations",
                         MUTED, 12, false));
-                card.getChildren().add(pathStrip(result.dfsPath, DFS_COLOR));
+                card.getChildren().add(pathFlow(result.dfsPath, DFS_COLOR));
+                card.getChildren().add(stationList(result.dfsPath));
             }
             pane.getChildren().add(card);
         }
@@ -121,8 +124,9 @@ public final class SearchView {
         pane.getChildren().add(titleLabel(
                 stops + " stop" + (stops == 1 ? "" : "s") + "  ·  " + path.size() + " stations",
                 SUCCESS, 14, false));
-        pane.getChildren().add(new Separator());
-        pane.getChildren().add(pathStrip(path, BFS_COLOR));
+        pane.getChildren().add(pathFlow(path, BFS_COLOR));
+        pane.getChildren().add(titleLabel("Full path", MUTED, 13, true));
+        pane.getChildren().add(stationList(path));
 
         return wrapScroll(pane);
     }
@@ -141,34 +145,45 @@ public final class SearchView {
         return row;
     }
 
-    private static ScrollPane pathStrip(List<String> path, String color) {
-        HBox row = new HBox(6);
-        row.setAlignment(Pos.CENTER_LEFT);
-        row.setPadding(new Insets(12, 8, 12, 8));
+    private static FlowPane pathFlow(List<String> path, String color) {
+        FlowPane flow = new FlowPane();
+        flow.setHgap(6);
+        flow.setVgap(10);
+        flow.setPadding(new Insets(12));
+        flow.setStyle("-fx-background-color: " + SURFACE + "; -fx-background-radius: 10;");
+        flow.setPrefWrapLength(700);
 
         for (int i = 0; i < path.size(); i++) {
             boolean first = i == 0;
             boolean last = i == path.size() - 1;
-            row.getChildren().add(stationChip(i + 1, path.get(i), first, last, color));
+            flow.getChildren().add(stationChip(i + 1, path.get(i), first, last, color));
             if (!last) {
                 Label arrow = new Label("→");
                 arrow.setTextFill(Color.web(color));
-                arrow.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
-                row.getChildren().add(arrow);
+                arrow.setFont(Font.font("Segoe UI", FontWeight.BOLD, 16));
+                flow.getChildren().add(arrow);
             }
         }
+        return flow;
+    }
 
-        ScrollPane scroll = new ScrollPane(row);
-        scroll.setFitToHeight(true);
-        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scroll.setStyle(
-                "-fx-background: " + SURFACE + ";" +
-                        "-fx-background-color: " + SURFACE + ";" +
-                        "-fx-background-radius: 10;"
-        );
-        scroll.setMinHeight(120);
-        return scroll;
+    private static VBox stationList(List<String> path) {
+        VBox list = new VBox(4);
+        list.setPadding(new Insets(8, 4, 8, 4));
+        for (int i = 0; i < path.size(); i++) {
+            String role = "";
+            if (i == 0) {
+                role = "  (Start)";
+            } else if (i == path.size() - 1) {
+                role = "  (End)";
+            }
+            Label row = new Label((i + 1) + ".  " + path.get(i) + role);
+            row.setTextFill(Color.web(TEXT));
+            row.setFont(Font.font("Consolas", i == 0 || i == path.size() - 1 ? FontWeight.BOLD : FontWeight.NORMAL, 14));
+            row.setWrapText(true);
+            list.getChildren().add(row);
+        }
+        return list;
     }
 
     private static VBox stationChip(int index, String name, boolean first, boolean last, String color) {

@@ -22,10 +22,18 @@ public final class FxSupport extends Application {
 
     public static void run(Runnable action) {
         ensureStarted();
+        Runnable guarded = () -> {
+            try {
+                action.run();
+            } catch (RuntimeException ex) {
+                System.out.println("Error opening GUI window: " + ex.getMessage());
+                ex.printStackTrace();
+            }
+        };
         if (Platform.isFxApplicationThread()) {
-            action.run();
+            guarded.run();
         } else {
-            Platform.runLater(action);
+            Platform.runLater(guarded);
         }
     }
 

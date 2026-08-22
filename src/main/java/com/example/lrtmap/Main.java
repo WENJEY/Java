@@ -443,6 +443,7 @@ public class Main {
                 }
                 System.out.println("\nOpening DFS result window...");
                 SearchView.showDfs(actualName, dfsResults);
+                System.out.println("If the window is hidden, look behind IntelliJ / your terminal.");
             }
         }
 
@@ -490,6 +491,7 @@ public class Main {
             }
             System.out.println("\nOpening BFS result window...");
             SearchView.showBfs(start, end, path);
+            System.out.println("If the window is hidden, look behind IntelliJ / your terminal.");
         }
 
         System.out.print("\nSearch again? (Y/N) : ");
