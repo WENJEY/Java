@@ -588,9 +588,10 @@ public class Main {
                 if (graph.getStations().isEmpty()) {
                     System.out.println("No stations yet — add some via 'Create Graph' first.");
                 } else {
-                    SearchMenu(s);
-                    return;
+                    System.out.println("Opening LRT search window...");
+                    SearchView.show(graph);
                 }
+                MainPage(s);
                 break;
 
             case 3:
