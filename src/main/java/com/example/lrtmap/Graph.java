@@ -4,10 +4,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Contract for a station graph: managing stations, edges, lines, and
- * pathfinding, plus persisting/restoring the graph's state.
- */
+
 public interface Graph {
 
     String resolveStationName(String name);
@@ -36,7 +33,7 @@ public interface Graph {
 
     boolean isLineInternalEdge(String a, String b);
 
-    List<String> shortestPath(String start, String end);
+    List<String> bfsForShortestPath(String start, String end);
 
     List<String> dfsToLastStation(String lineName, String station);
 

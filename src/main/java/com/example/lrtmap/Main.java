@@ -474,7 +474,7 @@ public class Main {
             return;
         }
 
-        List<String> path = graph.shortestPath(start, end); // BFS shortest path
+        List<String> path = graph.bfsForShortestPath(start, end); // BFS shortest path
 
         if (path.isEmpty()) {
             System.out.println("\nNo route found between '" + start + "' and '" + end + "'.");

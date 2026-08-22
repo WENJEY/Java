@@ -183,7 +183,7 @@ public abstract class AbstractGraph implements Graph {
     }
 
     @Override
-    public List<String> shortestPath(String start, String end) {
+    public List<String> bfsForShortestPath(String start, String end) {
         String actualStart = resolveStationName(start);
         String actualEnd = resolveStationName(end);
         if (actualStart == null || actualEnd == null) {
