@@ -1,22 +1,18 @@
 package com.example.lrtmap;
 
-import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListView;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Separator;
-import javafx.scene.control.Tab;
-import javafx.scene.control.TabPane;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
@@ -25,8 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * JavaFX window for Search features that used to be console-only:
- * station lookup (previous / next / DFS) and shortest route (BFS).
+ * Result window opened after a CLI search succeeds.
+ * Input stays in the console; this page only displays DFS or BFS paths.
  */
 public final class SearchView {
 
@@ -36,296 +32,204 @@ public final class SearchView {
     private static final String ACCENT = "#89b4fa";
     private static final String MUTED = "#a6adc8";
     private static final String SUCCESS = "#a6e3a1";
-    private static final String WARN = "#f38ba8";
+    private static final String DFS_COLOR = "#cba6f7";
+    private static final String BFS_COLOR = "#89b4fa";
 
-    private static Graph graphData;
     private static Stage currentStage;
 
     private SearchView() {
     }
 
-    public static void show(Graph graph) {
-        graphData = graph;
-        FxSupport.run(SearchView::openOrFocus);
+    public static final class DfsLineResult {
+        final String lineName;
+        final String previous;
+        final String next;
+        final List<String> dfsPath;
+
+        public DfsLineResult(String lineName, String previous, String next, List<String> dfsPath) {
+            this.lineName = lineName;
+            this.previous = previous;
+            this.next = next;
+            this.dfsPath = new ArrayList<>(dfsPath);
+        }
     }
 
-    private static void openOrFocus() {
-        if (currentStage != null) {
-            refreshStationLists();
-            currentStage.show();
-            currentStage.toFront();
-            return;
+    public static void showDfs(String station, List<DfsLineResult> lineResults) {
+        List<DfsLineResult> copy = new ArrayList<>(lineResults);
+        FxSupport.run(() -> open("DFS Result — " + station, buildDfsPane(station, copy)));
+    }
+
+    public static void showBfs(String start, String end, List<String> path) {
+        List<String> copy = new ArrayList<>(path);
+        FxSupport.run(() -> open("BFS Shortest Route", buildBfsPane(start, end, copy)));
+    }
+
+    private static void open(String title, Node content) {
+        if (currentStage == null) {
+            currentStage = new Stage();
+            currentStage.setOnCloseRequest(e -> currentStage = null);
         }
 
-        TabPane tabs = new TabPane();
-        tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        tabs.setStyle("-fx-background-color: " + BG + ";");
-
-        Tab stationTab = new Tab("Search Station", buildStationSearchPane());
-        Tab routeTab = new Tab("Shortest Route", buildRouteSearchPane());
-        tabs.getTabs().addAll(stationTab, routeTab);
-
-        VBox root = new VBox(12);
-        root.setPadding(new Insets(18));
+        VBox root = new VBox(content);
         root.setStyle("-fx-background-color: " + BG + ";");
+        VBox.setVgrow(content, Priority.ALWAYS);
 
-        Label title = new Label("LRT Search");
-        title.setTextFill(Color.web(ACCENT));
-        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
-
-        Label subtitle = new Label("Look up a station or find the shortest route between two stops.");
-        subtitle.setTextFill(Color.web(MUTED));
-        subtitle.setFont(Font.font("Segoe UI", 13));
-        subtitle.setWrapText(true);
-
-        root.getChildren().addAll(title, subtitle, tabs);
-        VBox.setVgrow(tabs, Priority.ALWAYS);
-
-        Scene scene = new Scene(root, 560, 520);
-        currentStage = new Stage();
-        currentStage.setTitle("LRT Search");
+        Scene scene = new Scene(root, 720, 480);
+        currentStage.setTitle(title);
         currentStage.setScene(scene);
-        currentStage.setOnCloseRequest(e -> currentStage = null);
         currentStage.show();
+        currentStage.toFront();
     }
 
-    private static VBox buildStationSearchPane() {
-        VBox pane = new VBox(12);
-        pane.setPadding(new Insets(14, 4, 4, 4));
+    private static Node buildDfsPane(String station, List<DfsLineResult> lineResults) {
+        VBox pane = new VBox(16);
+        pane.setPadding(new Insets(20));
         pane.setStyle("-fx-background-color: " + BG + ";");
 
-        Label hint = styledLabel("Type a station name or pick one from the list:", MUTED, 12);
+        pane.getChildren().add(header("DFS", "Depth-First Search", DFS_COLOR));
+        pane.getChildren().add(titleLabel("Station: " + station, TEXT, 20, true));
+        pane.getChildren().add(muted("Previous / next stations on each line, plus DFS to the last station."));
 
-        TextField searchField = new TextField();
-        searchField.setPromptText("Station name...");
-        styleField(searchField);
+        for (DfsLineResult result : lineResults) {
+            VBox card = card();
+            card.getChildren().add(titleLabel("Line: " + result.lineName, DFS_COLOR, 15, true));
+            card.getChildren().add(muted("Previous station : " + result.previous));
+            card.getChildren().add(muted("Next station     : " + result.next));
 
-        ComboBox<String> stationBox = new ComboBox<>();
-        stationBox.setPromptText("Select station");
-        stationBox.setMaxWidth(Double.MAX_VALUE);
-        styleCombo(stationBox);
-        stationBox.setItems(FXCollections.observableArrayList(sortedStations()));
-
-        searchField.textProperty().addListener((obs, oldVal, newVal) -> {
-            String q = newVal == null ? "" : newVal.trim().toLowerCase();
-            List<String> filtered = new ArrayList<>();
-            for (String name : sortedStations()) {
-                if (q.isEmpty() || name.toLowerCase().contains(q)) {
-                    filtered.add(name);
-                }
+            if (result.dfsPath.isEmpty()) {
+                card.getChildren().add(muted("No DFS path on this line."));
+            } else {
+                card.getChildren().add(titleLabel(
+                        "DFS to last station (" + result.dfsPath.size() + " stations)",
+                        MUTED, 12, false));
+                card.getChildren().add(pathStrip(result.dfsPath, DFS_COLOR));
             }
-            stationBox.setItems(FXCollections.observableArrayList(filtered));
-            if (filtered.size() == 1) {
-                stationBox.getSelectionModel().select(0);
-            }
-        });
+            pane.getChildren().add(card);
+        }
 
-        Button searchBtn = accentButton("Search");
-        TextArea resultArea = resultArea();
+        return wrapScroll(pane);
+    }
 
-        searchBtn.setOnAction(e -> {
-            String selected = stationBox.getSelectionModel().getSelectedItem();
-            if (selected == null || selected.isBlank()) {
-                selected = searchField.getText();
-            }
-            resultArea.setText(formatStationInfo(selected));
-        });
+    private static Node buildBfsPane(String start, String end, List<String> path) {
+        VBox pane = new VBox(16);
+        pane.setPadding(new Insets(20));
+        pane.setStyle("-fx-background-color: " + BG + ";");
 
-        searchField.setOnAction(e -> searchBtn.fire());
+        int stops = Math.max(path.size() - 1, 0);
+        pane.getChildren().add(header("BFS", "Breadth-First Search — shortest route", BFS_COLOR));
+        pane.getChildren().add(titleLabel(start + "  →  " + end, TEXT, 20, true));
+        pane.getChildren().add(titleLabel(
+                stops + " stop" + (stops == 1 ? "" : "s") + "  ·  " + path.size() + " stations",
+                SUCCESS, 14, false));
+        pane.getChildren().add(new Separator());
+        pane.getChildren().add(pathStrip(path, BFS_COLOR));
 
-        HBox row = new HBox(10, searchField, searchBtn);
-        HBox.setHgrow(searchField, Priority.ALWAYS);
+        return wrapScroll(pane);
+    }
+
+    private static HBox header(String badge, String subtitle, String color) {
+        Label tag = new Label(badge);
+        tag.setTextFill(Color.web(BG));
+        tag.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
+        tag.setPadding(new Insets(4, 10, 4, 10));
+        tag.setStyle("-fx-background-color: " + color + "; -fx-background-radius: 6;");
+
+        Label sub = titleLabel(subtitle, MUTED, 13, false);
+
+        HBox row = new HBox(12, tag, sub);
         row.setAlignment(Pos.CENTER_LEFT);
-
-        pane.getChildren().addAll(hint, row, stationBox, new Separator(), resultArea);
-        VBox.setVgrow(resultArea, Priority.ALWAYS);
-        return pane;
+        return row;
     }
 
-    private static VBox buildRouteSearchPane() {
-        VBox pane = new VBox(12);
-        pane.setPadding(new Insets(14, 4, 4, 4));
-        pane.setStyle("-fx-background-color: " + BG + ";");
+    private static ScrollPane pathStrip(List<String> path, String color) {
+        HBox row = new HBox(6);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(12, 8, 12, 8));
 
-        Label startLabel = styledLabel("Starting station", MUTED, 12);
-        ComboBox<String> startBox = new ComboBox<>();
-        startBox.setPromptText("From...");
-        startBox.setMaxWidth(Double.MAX_VALUE);
-        styleCombo(startBox);
+        for (int i = 0; i < path.size(); i++) {
+            boolean first = i == 0;
+            boolean last = i == path.size() - 1;
+            row.getChildren().add(stationChip(i + 1, path.get(i), first, last, color));
+            if (!last) {
+                Label arrow = new Label("→");
+                arrow.setTextFill(Color.web(color));
+                arrow.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
+                row.getChildren().add(arrow);
+            }
+        }
 
-        Label endLabel = styledLabel("Destination station", MUTED, 12);
-        ComboBox<String> endBox = new ComboBox<>();
-        endBox.setPromptText("To...");
-        endBox.setMaxWidth(Double.MAX_VALUE);
-        styleCombo(endBox);
-
-        List<String> stations = sortedStations();
-        startBox.setItems(FXCollections.observableArrayList(stations));
-        endBox.setItems(FXCollections.observableArrayList(stations));
-
-        Button findBtn = accentButton("Find Shortest Route");
-        ListView<String> pathList = new ListView<>();
-        pathList.setStyle(
-                "-fx-control-inner-background: " + SURFACE + ";" +
+        ScrollPane scroll = new ScrollPane(row);
+        scroll.setFitToHeight(true);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.setStyle(
+                "-fx-background: " + SURFACE + ";" +
                         "-fx-background-color: " + SURFACE + ";" +
-                        "-fx-text-fill: " + TEXT + ";" +
-                        "-fx-background-radius: 8;"
+                        "-fx-background-radius: 10;"
         );
-        Label summary = styledLabel("", MUTED, 13);
-
-        findBtn.setOnAction(e -> {
-            String start = startBox.getSelectionModel().getSelectedItem();
-            String end = endBox.getSelectionModel().getSelectedItem();
-            pathList.getItems().clear();
-
-            if (start == null || end == null) {
-                summary.setTextFill(Color.web(WARN));
-                summary.setText("Please select both a start and a destination station.");
-                return;
-            }
-            if (start.equals(end)) {
-                summary.setTextFill(Color.web(WARN));
-                summary.setText("Start and destination must be different stations.");
-                return;
-            }
-
-            List<String> path = graphData.bfsForShortestPath(start, end);
-            if (path.isEmpty()) {
-                summary.setTextFill(Color.web(WARN));
-                summary.setText("No route found between '" + start + "' and '" + end + "'.");
-                return;
-            }
-
-            int stops = path.size() - 1;
-            summary.setTextFill(Color.web(SUCCESS));
-            summary.setText("Route found (" + stops + " stop" + (stops == 1 ? "" : "s") + "):");
-            for (int i = 0; i < path.size(); i++) {
-                pathList.getItems().add((i + 1) + ". " + path.get(i));
-            }
-        });
-
-        pane.getChildren().addAll(
-                startLabel, startBox,
-                endLabel, endBox,
-                findBtn,
-                summary,
-                pathList
-        );
-        VBox.setVgrow(pathList, Priority.ALWAYS);
-        return pane;
+        scroll.setMinHeight(120);
+        return scroll;
     }
 
-    private static String formatStationInfo(String input) {
-        if (input == null || input.isBlank()) {
-            return "Please enter or select a station name.";
+    private static VBox stationChip(int index, String name, boolean first, boolean last, String color) {
+        Circle circle = new Circle(14);
+        if (first || last) {
+            circle.setFill(Color.web(color));
+            circle.setStroke(Color.WHITE);
+            circle.setStrokeWidth(2);
+        } else {
+            circle.setFill(Color.web(BG));
+            circle.setStroke(Color.web(color));
+            circle.setStrokeWidth(2);
         }
 
-        String actualName = graphData.resolveStationName(input.trim());
-        if (actualName == null) {
-            return "Station '" + input.trim() + "' does not exist in the system.";
-        }
+        Label num = new Label(String.valueOf(index));
+        num.setTextFill((first || last) ? Color.web(BG) : Color.web(color));
+        num.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
 
-        List<String> stationLines = graphData.getLinesForStation(actualName);
-        StringBuilder sb = new StringBuilder();
-        sb.append("Station: ").append(actualName).append("\n");
+        StackPane marker = new StackPane(circle, num);
 
-        if (stationLines.isEmpty()) {
-            sb.append("\nThis station exists but is not connected to any line yet.");
-            return sb.toString();
-        }
+        Label nameLabel = new Label(name);
+        nameLabel.setTextFill(Color.WHITE);
+        nameLabel.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
+        nameLabel.setWrapText(true);
+        nameLabel.setMaxWidth(110);
+        nameLabel.setAlignment(Pos.CENTER);
 
-        sb.append("Found on ").append(stationLines.size())
-                .append(" line(s):\n");
+        String role = first ? "Start" : (last ? "End" : "");
+        Label roleLabel = new Label(role);
+        roleLabel.setTextFill(Color.web(MUTED));
+        roleLabel.setFont(Font.font("Segoe UI", 10));
 
-        for (String lineName : stationLines) {
-            List<String> stationsOnLine = graphData.getLineStations(lineName);
-            int idx = stationsOnLine.indexOf(actualName);
-            String previous = (idx > 0) ? stationsOnLine.get(idx - 1) : "None (start of the line)";
-            String next = (idx < stationsOnLine.size() - 1)
-                    ? stationsOnLine.get(idx + 1)
-                    : "None (end of the line)";
-
-            sb.append("\n──────── ").append(lineName).append(" ────────\n");
-            sb.append("Previous station : ").append(previous).append("\n");
-            sb.append("Next station     : ").append(next).append("\n");
-
-            List<String> dfsPath = graphData.dfsToLastStation(lineName, actualName);
-            if (!dfsPath.isEmpty()) {
-                sb.append("DFS to last station: ").append(String.join(" → ", dfsPath)).append("\n");
-            }
-        }
-        return sb.toString();
+        VBox chip = new VBox(4, marker, nameLabel, roleLabel);
+        chip.setAlignment(Pos.TOP_CENTER);
+        chip.setMinWidth(90);
+        return chip;
     }
 
-    private static void refreshStationLists() {
-        // Stage already open: recreate scene content next open is enough;
-        // if still open, rebuild by closing null path — user can reopen from menu.
-        if (currentStage != null) {
-            currentStage.close();
-            currentStage = null;
-            openOrFocus();
-        }
+    private static VBox card() {
+        VBox card = new VBox(8);
+        card.setPadding(new Insets(14));
+        card.setStyle("-fx-background-color: " + SURFACE + "; -fx-background-radius: 10;");
+        return card;
     }
 
-    private static List<String> sortedStations() {
-        List<String> stations = new ArrayList<>(graphData.getStations());
-        stations.sort(String.CASE_INSENSITIVE_ORDER);
-        return stations;
+    private static ScrollPane wrapScroll(VBox pane) {
+        ScrollPane scroll = new ScrollPane(pane);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background: " + BG + "; -fx-background-color: " + BG + ";");
+        return scroll;
     }
 
-    private static Label styledLabel(String text, String color, double size) {
+    private static Label titleLabel(String text, String color, double size, boolean bold) {
         Label label = new Label(text);
         label.setTextFill(Color.web(color));
-        label.setFont(Font.font("Segoe UI", size));
+        label.setFont(Font.font("Segoe UI", bold ? FontWeight.BOLD : FontWeight.NORMAL, size));
         label.setWrapText(true);
         return label;
     }
 
-    private static TextArea resultArea() {
-        TextArea area = new TextArea();
-        area.setEditable(false);
-        area.setWrapText(true);
-        area.setPromptText("Search results will appear here...");
-        area.setStyle(
-                "-fx-control-inner-background: " + SURFACE + ";" +
-                        "-fx-text-fill: " + TEXT + ";" +
-                        "-fx-prompt-text-fill: " + MUTED + ";" +
-                        "-fx-background-color: " + SURFACE + ";" +
-                        "-fx-background-radius: 8;" +
-                        "-fx-font-family: 'Consolas', 'Courier New', monospace;" +
-                        "-fx-font-size: 13;"
-        );
-        return area;
-    }
-
-    private static void styleField(TextField field) {
-        field.setStyle(
-                "-fx-background-color: " + SURFACE + ";" +
-                        "-fx-text-fill: " + TEXT + ";" +
-                        "-fx-prompt-text-fill: " + MUTED + ";" +
-                        "-fx-background-radius: 8;" +
-                        "-fx-padding: 8 12 8 12;"
-        );
-    }
-
-    private static void styleCombo(ComboBox<String> combo) {
-        combo.setStyle(
-                "-fx-background-color: " + SURFACE + ";" +
-                        "-fx-text-fill: " + TEXT + ";" +
-                        "-fx-background-radius: 8;"
-        );
-    }
-
-    private static Button accentButton(String text) {
-        Button button = new Button(text);
-        button.setStyle(
-                "-fx-background-color: " + ACCENT + ";" +
-                        "-fx-text-fill: " + BG + ";" +
-                        "-fx-font-weight: bold;" +
-                        "-fx-background-radius: 8;" +
-                        "-fx-padding: 8 16 8 16;" +
-                        "-fx-cursor: hand;"
-        );
-        return button;
+    private static Label muted(String text) {
+        return titleLabel(text, MUTED, 13, false);
     }
 }
