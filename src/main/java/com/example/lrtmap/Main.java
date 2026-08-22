@@ -424,6 +424,7 @@ public class Main {
                 System.out.println("\nStation '" + actualName + "' exists but is not connected to any line yet.");
             } else {
                 System.out.println("\nStation '" + actualName + "' found on the following line(s):");
+                List<SearchView.DfsLineResult> dfsResults = new ArrayList<>();
                 for (String lineName : stationLines) {
                     List<String> stationsOnLine = graph.getLineStations(lineName);
                     int idx = stationsOnLine.indexOf(actualName);
@@ -438,7 +439,11 @@ public class Main {
                     if (!dfsPath.isEmpty()) {
                         System.out.println("DFS to last station on this line : " + String.join(" -> ", dfsPath));
                     }
+                    dfsResults.add(new SearchView.DfsLineResult(lineName, previous, next, dfsPath));
                 }
+                System.out.println("\nOpening DFS result window...");
+                SearchView.showDfs(actualName, dfsResults);
+                System.out.println("If the window is hidden, look behind IntelliJ / your terminal.");
             }
         }
 
@@ -484,6 +489,9 @@ public class Main {
             for (int i = 0; i < path.size(); i++) {
                 System.out.println("  " + (i + 1) + ". " + path.get(i));
             }
+            System.out.println("\nOpening BFS result window...");
+            SearchView.showBfs(start, end, path);
+            System.out.println("If the window is hidden, look behind IntelliJ / your terminal.");
         }
 
         System.out.print("\nSearch again? (Y/N) : ");

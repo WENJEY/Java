@@ -20,10 +20,10 @@ import java.util.*;
 public class LRTMapView extends Application {
 
     private static Graph graphData;
-    private static boolean fxStarted = false;
 
     private static Pane currentPane;
     private static Stage currentStage;
+    private static ScrollPane currentScroll;
 
     private static final double CANVAS_WIDTH = 900;
     private static final double CANVAS_HEIGHT = 900;
@@ -43,42 +43,60 @@ public class LRTMapView extends Application {
 
     public static void show(Graph graph) {
         graphData = graph;
-        if (!fxStarted) {
-            fxStarted = true;
-            Thread fxThread = new Thread(() -> Application.launch(LRTMapView.class));
-            fxThread.setDaemon(true);
-            fxThread.start();
-        } else {
-            Platform.runLater(LRTMapView::refresh);
-        }
+        FxSupport.run(LRTMapView::openOrRefresh);
     }
 
+    /** Kept for javafx:run / Launcher entry points that still launch this Application. */
     @Override
     public void start(Stage stage) {
         Platform.setImplicitExit(false);
         currentStage = stage;
-        currentPane = buildMapPane();
+        showMapOn(stage);
+    }
 
-        ScrollPane scrollPane = new ScrollPane(currentPane);
-        scrollPane.setFitToWidth(true);
-        scrollPane.setStyle("-fx-background: " + CANVAS_BACKGROUND + "; -fx-background-color: " + CANVAS_BACKGROUND + ";");
+    private static void openOrRefresh() {
+        if (currentStage == null) {
+            Stage stage = new Stage();
+            currentStage = stage;
+            stage.setOnCloseRequest(e -> {
+                currentStage = null;
+                currentPane = null;
+                currentScroll = null;
+            });
+            showMapOn(stage);
+            return;
+        }
+        refresh();
+    }
 
-        Scene scene = new Scene(scrollPane, CANVAS_WIDTH, CANVAS_HEIGHT);
+    private static void showMapOn(Stage stage) {
+        currentPane = new LRTMapView().buildMapPane();
+        currentScroll = new ScrollPane(currentPane);
+        currentScroll.setFitToWidth(true);
+        currentScroll.setStyle("-fx-background: " + CANVAS_BACKGROUND + "; -fx-background-color: " + CANVAS_BACKGROUND + ";");
+
+        Scene scene = new Scene(currentScroll, CANVAS_WIDTH, CANVAS_HEIGHT);
         stage.setScene(scene);
         stage.setTitle("LRT Navigation Map");
         stage.show();
+        stage.toFront();
     }
 
     private static void refresh() {
-        if (currentPane == null) return;
-        Pane fresh = new LRTMapView().buildMapPane();
-        currentPane.getChildren().setAll(fresh.getChildren());
-        currentPane.setPrefSize(fresh.getPrefWidth(), fresh.getPrefHeight());
-
-        if (currentStage != null) {
-            currentStage.show();
-            currentStage.toFront();
+        if (currentStage == null) {
+            openOrRefresh();
+            return;
         }
+        Pane fresh = new LRTMapView().buildMapPane();
+        if (currentPane != null) {
+            currentPane.getChildren().setAll(fresh.getChildren());
+            currentPane.setPrefSize(fresh.getPrefWidth(), fresh.getPrefHeight());
+        } else {
+            showMapOn(currentStage);
+            return;
+        }
+        currentStage.show();
+        currentStage.toFront();
     }
 
     private Pane buildMapPane() {
