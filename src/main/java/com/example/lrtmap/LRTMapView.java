@@ -6,6 +6,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
@@ -21,6 +22,8 @@ public class LRTMapView extends Application {
 
     private static Graph graphData;
     private static boolean fxStarted = false;
+
+    private static List<String> highlightedStations = Collections.emptyList();
 
     private static Pane currentPane;
     private static Stage currentStage;
@@ -40,9 +43,20 @@ public class LRTMapView extends Application {
     private static final String INTERCHANGE_CONNECTOR_COLOR = "#ffffff";
     private static final String MANUAL_EDGE_COLOR = "#9399b2";
     private static final String CANVAS_BACKGROUND = "#1e1e2e";
+    private static final String HIGHLIGHT_COLOR = "#ff3b3b";
 
     public static void show(Graph graph) {
         graphData = graph;
+        highlightedStations = Collections.emptyList();
+        display();
+    }
+    public static void highlightRoute(Graph graph, List<String> path) {
+        graphData = graph;
+        highlightedStations = (path == null) ? Collections.emptyList() : new ArrayList<>(path);
+        display();
+    }
+
+    private static void display() {
         if (!fxStarted) {
             fxStarted = true;
             Thread fxThread = new Thread(() -> Application.launch(LRTMapView.class));
@@ -182,7 +196,148 @@ public class LRTMapView extends Application {
             }
         }
 
+        drawHighlightOverlay(root, layout);
+
         return root;
+    }
+
+    private void drawHighlightOverlay(Pane root, LineLayoutResult layout) {
+        if (highlightedStations == null || highlightedStations.isEmpty()) return;
+
+        List<String> path = highlightedStations;
+        int n = path.size();
+
+        if (n == 1) {
+            List<OccurrencePoint> points = layout.occurrences.get(path.get(0));
+            if (points != null) {
+                for (OccurrencePoint p : points) {
+                    drawHighlightRing(root, p);
+                }
+            }
+            return;
+        }
+
+        String[] edgeLine = new String[n - 1];
+        for (int i = 0; i < n - 1; i++) {
+            String a = path.get(i);
+            String b = path.get(i + 1);
+            List<String> candidates = commonAdjacentLines(a, b);
+            String prevLine = (i > 0) ? edgeLine[i - 1] : null;
+            if (prevLine != null && candidates.contains(prevLine)) {
+                edgeLine[i] = prevLine;
+            } else if (!candidates.isEmpty()) {
+                edgeLine[i] = candidates.get(0);
+            } else {
+                edgeLine[i] = null;
+            }
+        }
+
+        List<OccurrencePoint[]> resolved = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            String station = path.get(i);
+            String enterLine = (i > 0) ? edgeLine[i - 1] : null;
+            String exitLine = (i < n - 1) ? edgeLine[i] : null;
+
+            OccurrencePoint enterPt = pointOnLine(layout, enterLine, station);
+            OccurrencePoint exitPt = pointOnLine(layout, exitLine, station);
+
+            if (enterPt != null && exitPt != null) {
+                resolved.add(enterPt == exitPt ? new OccurrencePoint[]{enterPt}
+                        : new OccurrencePoint[]{enterPt, exitPt});
+            } else if (enterPt != null) {
+                resolved.add(new OccurrencePoint[]{enterPt});
+            } else if (exitPt != null) {
+                resolved.add(new OccurrencePoint[]{exitPt});
+            } else {
+                OccurrencePoint fb = firstOccurrence(layout, station);
+                resolved.add(fb == null ? new OccurrencePoint[0] : new OccurrencePoint[]{fb});
+            }
+        }
+
+        for (int i = 0; i < n - 1; i++) {
+            OccurrencePoint[] fromPts = resolved.get(i);
+            OccurrencePoint[] toPts = resolved.get(i + 1);
+            if (fromPts.length == 0 || toPts.length == 0) continue;
+            drawHighlightLine(root, fromPts[fromPts.length - 1], toPts[0]);
+        }
+
+        for (OccurrencePoint[] pts : resolved) {
+            if (pts.length == 2) {
+                drawHighlightLine(root, pts[0], pts[1]);
+            }
+        }
+
+        for (int i = 0; i < n; i++) {
+            for (OccurrencePoint p : resolved.get(i)) {
+                drawHighlightRing(root, p);
+            }
+            if (resolved.get(i).length > 0) {
+                drawOrderBadge(root, resolved.get(i)[0], i + 1);
+            }
+        }
+    }
+
+    private List<String> commonAdjacentLines(String a, String b) {
+        List<String> result = new ArrayList<>();
+        for (String lineName : graphData.getLines()) {
+            List<String> stationsOnLine = graphData.getLineStations(lineName);
+            int ia = stationsOnLine.indexOf(a);
+            int ib = stationsOnLine.indexOf(b);
+            if (ia != -1 && ib != -1 && Math.abs(ia - ib) == 1) {
+                result.add(lineName);
+            }
+        }
+        return result;
+    }
+
+    private OccurrencePoint pointOnLine(LineLayoutResult layout, String lineName, String station) {
+        if (lineName == null) return null;
+        for (LineRender lr : layout.lineRenders) {
+            if (lr.name.equals(lineName)) {
+                List<String> stationsOnLine = graphData.getLineStations(lineName);
+                int idx = stationsOnLine.indexOf(station);
+                if (idx == -1) return null;
+                return lr.points.get(idx);
+            }
+        }
+        return null;
+    }
+
+    private void drawHighlightLine(Pane root, OccurrencePoint p1, OccurrencePoint p2) {
+        Line highlightLine = new Line(p1.x, p1.y, p2.x, p2.y);
+        highlightLine.setStroke(Color.web(HIGHLIGHT_COLOR));
+        highlightLine.setStrokeWidth(6);
+        DropShadow glow = new DropShadow();
+        glow.setColor(Color.web(HIGHLIGHT_COLOR));
+        glow.setRadius(14);
+        highlightLine.setEffect(glow);
+        root.getChildren().add(highlightLine);
+    }
+
+    private void drawHighlightRing(Pane root, OccurrencePoint p) {
+        Circle ring = new Circle(p.x, p.y, 20);
+        ring.setFill(Color.TRANSPARENT);
+        ring.setStroke(Color.web(HIGHLIGHT_COLOR));
+        ring.setStrokeWidth(3);
+        DropShadow glow = new DropShadow();
+        glow.setColor(Color.web(HIGHLIGHT_COLOR));
+        glow.setRadius(10);
+        ring.setEffect(glow);
+        root.getChildren().add(ring);
+    }
+
+    private void drawOrderBadge(Pane root, OccurrencePoint p, int order) {
+        Label label = new Label(String.valueOf(order));
+        label.setTextFill(Color.web(CANVAS_BACKGROUND));
+        label.setFont(Font.font("System", FontWeight.BOLD, 11));
+        label.setStyle(
+                "-fx-background-color: " + HIGHLIGHT_COLOR + ";" +
+                        "-fx-background-radius: 8;" +
+                        "-fx-padding: 1 5 1 5;"
+        );
+        label.setLayoutX(p.x - 8);
+        label.setLayoutY(p.y - 32);
+        root.getChildren().add(label);
     }
 
     private OccurrencePoint firstOccurrence(LineLayoutResult layout, String station) {

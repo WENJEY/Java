@@ -1,6 +1,7 @@
 package com.example.lrtmap;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -419,6 +420,8 @@ public class Main {
         if (actualName == null) {
             System.out.println("\nStation '" + stationName + "' does not exist in the system.");
         } else {
+            LRTMapView.highlightRoute(graph, Collections.singletonList(actualName));
+
             List<String> stationLines = graph.getLinesForStation(actualName);
             if (stationLines.isEmpty()) {
                 System.out.println("\nStation '" + actualName + "' exists but is not connected to any line yet.");
@@ -484,6 +487,8 @@ public class Main {
             for (int i = 0; i < path.size(); i++) {
                 System.out.println("  " + (i + 1) + ". " + path.get(i));
             }
+            System.out.println("\nOpening LRT map window with route highlighted...");
+            LRTMapView.highlightRoute(graph, path);
         }
 
         System.out.print("\nSearch again? (Y/N) : ");

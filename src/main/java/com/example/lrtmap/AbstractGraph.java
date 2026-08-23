@@ -294,7 +294,6 @@ public abstract class AbstractGraph implements Graph {
     @Override
     public abstract void loadFromFile(String path) throws IOException;
 
-
     protected List<String[]> computeExtraEdges() {
         List<String[]> extraEdges = new ArrayList<>();
         for (String[] edge : getEdges()) {

@@ -40,4 +40,5 @@ public interface Graph {
     void saveToFile(String path) throws IOException;
 
     void loadFromFile(String path) throws IOException;
+
 }
