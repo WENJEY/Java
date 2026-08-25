@@ -18,121 +18,60 @@
     "Hang Tuah",
     "Pudu",
     "Sungai Besi",
-    "Bukit Jalil"
+    "Bukit Jalil",
+    "IOI Puchong Jaya",
+    "Pusat Puchong",
+    "Dato'Keramat"
   ],
   "lines": {
     "Puchong": {
       "edges": [
-        [
-          "Sungai Besi",
-          "Bukit Jalil"
-        ],
-        [
-          "Bukit Jalil",
-          "Sentul"
-        ],
-        [
-          "Sentul",
-          "IOI Puchong Jaya"
-        ],
-        [
-          "IOI Puchong Jaya",
-          "Pusat Puchong"
-        ]
+        ["Sungai Besi", "Bukit Jalil"],
+        ["Bukit Jalil", "Sentul"],
+        ["Sentul", "IOI Puchong Jaya"],
+        ["IOI Puchong Jaya", "Pusat Puchong"]
       ]
     },
     "Sentul": {
       "edges": [
-        [
-          "Sentul Timur",
-          "Sentul"
-        ],
-        [
-          "Sentul",
-          "Titiwangsa"
-        ],
-        [
-          "Titiwangsa",
-          "Hang Tuah"
-        ],
-        [
-          "Hang Tuah",
-          "Pasar Seni"
-        ],
-        [
-          "Pasar Seni",
-          "Ampang Park"
-        ]
+        ["Sentul Timur", "Sentul"],
+        ["Sentul", "Titiwangsa"],
+        ["Titiwangsa", "Hang Tuah"],
+        ["Hang Tuah", "Pasar Seni"],
+        ["Pasar Seni", "Ampang Park"]
       ]
     },
     "Pandan Jaya": {
       "edges": [
-        [
-          "Dato'Keramat",
-          "Damai"
-        ],
-        [
-          "Damai",
-          "Titiwangsa"
-        ],
-        [
-          "Titiwangsa",
-          "Pudu"
-        ],
-        [
-          "Pudu",
-          "Lembah Subang"
-        ]
+        ["Dato'Keramat", "Damai"],
+        ["Damai", "Titiwangsa"],
+        ["Titiwangsa", "Pudu"],
+        ["Pudu", "Lembah Subang"]
       ]
     },
     "KLCC": {
       "edges": [
-        [
-          "KLCC",
-          "Kampung Baru"
-        ],
-        [
-          "Kampung Baru",
-          "Dang Wangi"
-        ],
-        [
-          "Dang Wangi",
-          "Damai"
-        ],
-        [
-          "Damai",
-          "Taman Bahagia"
-        ],
-        [
-          "Taman Bahagia",
-          "Kelana Jaya"
-        ],
-        [
-          "Kelana Jaya",
-          "Lembah Subang"
-        ]
+        ["KLCC", "Kampung Baru"],
+        ["Kampung Baru", "Dang Wangi"],
+        ["Dang Wangi", "Damai"],
+        ["Damai", "Taman Bahagia"],
+        ["Taman Bahagia", "Kelana Jaya"],
+        ["Kelana Jaya", "Lembah Subang"]
       ]
     },
     "Gombak": {
-      "edges": [ [
-        "Gombak",
-        "Taman Melati"
-      ],
-        [
-          "Taman Melati",
-          "Wangsa Maju"
-        ],
-        [
-          "Wangsa Maju",
-          "Dang Wangi"
-        ],
-        [
-          "Dang Wangi",
-          "Ampang Park"
-        ]
+      "edges": [
+        ["Gombak", "Taman Melati"],
+        ["Taman Melati", "Wangsa Maju"],
+        ["Wangsa Maju", "Dang Wangi"],
+        ["Dang Wangi", "Ampang Park"]
       ]
     },
-    "extraEdges": [
-    ]
-  }
+    "Kampung": {
+      "edges": [
+      ]
+    }
+  },
+  "extraEdges": [
+  ]
 }

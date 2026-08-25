@@ -125,15 +125,20 @@ public class LRTMapView extends Application {
                 segment.setStrokeWidth(4);
                 root.getChildren().add(segment);
             }
+            Label lineLabel = new Label(lr.name);
+            lineLabel.setTextFill(Color.web(lr.color));
+            lineLabel.setFont(Font.font("System", FontWeight.BOLD, 12));
+
             if (!lr.points.isEmpty()) {
-                Label lineLabel = new Label(lr.name);
-                lineLabel.setTextFill(Color.web(lr.color));
-                lineLabel.setFont(Font.font("System", FontWeight.BOLD, 12));
                 OccurrencePoint first = lr.points.get(0);
                 lineLabel.setLayoutX(first.x - 30);
                 lineLabel.setLayoutY(first.y - 40);
-                root.getChildren().add(lineLabel);
+            } else {
+                lineLabel.setLayoutX(lr.x - 30);
+                lineLabel.setLayoutY(TOP_MARGIN - 40);
             }
+
+            root.getChildren().add(lineLabel);
         }
 
         for (String[] edge : graphData.getEdges()) {
@@ -159,7 +164,6 @@ public class LRTMapView extends Application {
                 Line connector = new Line(p1.x, p1.y, p2.x, p2.y);
                 connector.setStroke(Color.web(INTERCHANGE_CONNECTOR_COLOR));
                 connector.setStrokeWidth(2);
-                connector.getStrokeDashArray().addAll(3.0, 4.0);
                 root.getChildren().add(connector);
             }
         }
@@ -366,7 +370,7 @@ public class LRTMapView extends Application {
                 occurrences.computeIfAbsent(stationsOnLine.get(i), k -> new ArrayList<>()).add(point);
                 maxY = Math.max(maxY, y);
             }
-            lineRenders.add(new LineRender(lineName, color, linePoints));
+            lineRenders.add(new LineRender(lineName, color, linePoints, x));
             x += LINE_COLUMN_SPACING;
         }
 
@@ -409,11 +413,14 @@ public class LRTMapView extends Application {
         final String name;
         final String color;
         final List<OccurrencePoint> points;
+        final double x;
 
-        LineRender(String name, String color, List<OccurrencePoint> points) {
+        LineRender(String name, String color,
+                   List<OccurrencePoint> points, double x) {
             this.name = name;
             this.color = color;
             this.points = points;
+            this.x = x;
         }
     }
 
