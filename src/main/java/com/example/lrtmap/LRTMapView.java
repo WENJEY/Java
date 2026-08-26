@@ -6,6 +6,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
@@ -21,6 +22,9 @@ public class LRTMapView extends Application {
 
     private static Graph graphData;
     private static boolean fxStarted = false;
+
+    private static Map<String, Integer> stationLayers = Collections.emptyMap();
+    private static String bfsStartStation = null;
 
     private static Pane currentPane;
     private static Stage currentStage;
@@ -40,9 +44,27 @@ public class LRTMapView extends Application {
     private static final String INTERCHANGE_CONNECTOR_COLOR = "#ffffff";
     private static final String MANUAL_EDGE_COLOR = "#9399b2";
     private static final String CANVAS_BACKGROUND = "#1e1e2e";
+    private static final String LAYER_BADGE_TEXT = "#1e1e2e";
+    private static final String[] LAYER_COLORS = {
+            "#ff3b3b", "#fab387", "#f9e2af", "#a6e3a1",
+            "#89b4fa", "#cba6f7", "#94e2d5", "#f38ba8"
+    };
 
     public static void show(Graph graph) {
         graphData = graph;
+        stationLayers = Collections.emptyMap();
+        bfsStartStation = null;
+        display();
+    }
+
+    public static void showBfsLayers(Graph graph, Map<String, Integer> layers, String startStation) {
+        graphData = graph;
+        stationLayers = (layers == null) ? Collections.emptyMap() : new LinkedHashMap<>(layers);
+        bfsStartStation = startStation;
+        display();
+    }
+
+    private static void display() {
         if (!fxStarted) {
             fxStarted = true;
             Thread fxThread = new Thread(() -> Application.launch(LRTMapView.class));
@@ -65,7 +87,7 @@ public class LRTMapView extends Application {
 
         Scene scene = new Scene(scrollPane, CANVAS_WIDTH, CANVAS_HEIGHT);
         stage.setScene(scene);
-        stage.setTitle("LRT Navigation Map");
+        applyStageTitle(stage);
         stage.show();
     }
 
@@ -76,8 +98,17 @@ public class LRTMapView extends Application {
         currentPane.setPrefSize(fresh.getPrefWidth(), fresh.getPrefHeight());
 
         if (currentStage != null) {
+            applyStageTitle(currentStage);
             currentStage.show();
             currentStage.toFront();
+        }
+    }
+
+    private static void applyStageTitle(Stage stage) {
+        if (bfsStartStation != null && !stationLayers.isEmpty()) {
+            stage.setTitle("BFS layers from " + bfsStartStation);
+        } else {
+            stage.setTitle("LRT Navigation Map");
         }
     }
 
@@ -102,6 +133,8 @@ public class LRTMapView extends Application {
         LineLayoutResult layout = computeLinePositions(stations);
         root.setPrefSize(layout.totalWidth, layout.totalHeight);
 
+        drawBfsTitle(root, layout.totalWidth);
+
         for (LineRender lr : layout.lineRenders) {
             for (int i = 0; i < lr.points.size() - 1; i++) {
                 OccurrencePoint p1 = lr.points.get(i);
@@ -117,7 +150,7 @@ public class LRTMapView extends Application {
                 lineLabel.setFont(Font.font("System", FontWeight.BOLD, 12));
                 OccurrencePoint first = lr.points.get(0);
                 lineLabel.setLayoutX(first.x - 30);
-                lineLabel.setLayoutY(first.y - 40);
+                lineLabel.setLayoutY(first.y - (stationLayers.isEmpty() ? 40 : 54));
                 root.getChildren().add(lineLabel);
             }
         }
@@ -154,8 +187,14 @@ public class LRTMapView extends Application {
             String station = entry.getKey();
             List<OccurrencePoint> points = entry.getValue();
             boolean isInterchange = points.size() > 1;
+            Integer layer = stationLayers.get(station);
+            boolean isStart = bfsStartStation != null && station.equals(bfsStartStation);
 
             for (OccurrencePoint p : points) {
+                if (layer != null) {
+                    drawLayerRing(root, p, layer, isStart);
+                }
+
                 Circle circle = new Circle(p.x, p.y, isInterchange ? 16 : 14);
                 if (isInterchange) {
                     circle.setFill(Color.web(CANVAS_BACKGROUND));
@@ -168,10 +207,11 @@ public class LRTMapView extends Application {
                 }
                 root.getChildren().add(circle);
 
-                Label label = new Label(station);
+                String stationText = (layer == null) ? station : station + "  L" + layer;
+                Label label = new Label(stationText);
                 label.setTextFill(Color.WHITE);
                 label.setFont(Font.font("System", FontWeight.BOLD, 10));
-                label.setLayoutX(p.x + 18);
+                label.setLayoutX(p.x + 22);
                 label.setLayoutY(p.y - 7);
                 label.setStyle(
                         "-fx-background-color: " + CANVAS_BACKGROUND + ";" +
@@ -179,10 +219,57 @@ public class LRTMapView extends Application {
                                 "-fx-padding: 1 4 1 4;"
                 );
                 root.getChildren().add(label);
+
+                if (layer != null) {
+                    drawLayerBadge(root, p, layer);
+                }
             }
         }
 
         return root;
+    }
+
+    private void drawBfsTitle(Pane root, double totalWidth) {
+        if (bfsStartStation == null || stationLayers.isEmpty()) {
+            return;
+        }
+        Label title = new Label("BFS from " + bfsStartStation + "  —  each station shows its layer (L0 = start)");
+        title.setTextFill(Color.WHITE);
+        title.setFont(Font.font("System", FontWeight.BOLD, 14));
+        title.setLayoutX(LEFT_MARGIN - 20);
+        title.setLayoutY(24);
+        title.setPrefWidth(Math.max(totalWidth - 40, 400));
+        root.getChildren().add(title);
+    }
+
+    private void drawLayerRing(Pane root, OccurrencePoint p, int layer, boolean isStart) {
+        Circle ring = new Circle(p.x, p.y, isStart ? 24 : 20);
+        ring.setFill(Color.TRANSPARENT);
+        ring.setStroke(Color.web(layerColor(layer)));
+        ring.setStrokeWidth(isStart ? 4 : 3);
+        DropShadow glow = new DropShadow();
+        glow.setColor(Color.web(layerColor(layer)));
+        glow.setRadius(isStart ? 14 : 8);
+        ring.setEffect(glow);
+        root.getChildren().add(ring);
+    }
+
+    private void drawLayerBadge(Pane root, OccurrencePoint p, int layer) {
+        Label badge = new Label("L" + layer);
+        badge.setTextFill(Color.web(LAYER_BADGE_TEXT));
+        badge.setFont(Font.font("System", FontWeight.BOLD, 11));
+        badge.setStyle(
+                "-fx-background-color: " + layerColor(layer) + ";" +
+                        "-fx-background-radius: 8;" +
+                        "-fx-padding: 1 5 1 5;"
+        );
+        badge.setLayoutX(p.x - 12);
+        badge.setLayoutY(p.y - 34);
+        root.getChildren().add(badge);
+    }
+
+    private static String layerColor(int layer) {
+        return LAYER_COLORS[Math.floorMod(layer, LAYER_COLORS.length)];
     }
 
     private OccurrencePoint firstOccurrence(LineLayoutResult layout, String station) {

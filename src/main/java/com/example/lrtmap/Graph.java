@@ -2,6 +2,7 @@ package com.example.lrtmap;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 
@@ -33,9 +34,7 @@ public interface Graph {
 
     boolean isLineInternalEdge(String a, String b);
 
-    List<String> bfsForShortestPath(String start, String end);
-
-    List<String> dfsToLastStation(String lineName, String station);
+    Map<String, Integer> bfsLayers(String start);
 
     void saveToFile(String path) throws IOException;
 
