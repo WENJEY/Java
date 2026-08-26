@@ -3,13 +3,10 @@ package com.example.lrtmap;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -183,109 +180,29 @@ public abstract class AbstractGraph implements Graph {
     }
 
     @Override
-    public List<String> bfsForShortestPath(String start, String end) {
+    public Map<String, Integer> bfsLayers(String start) {
         String actualStart = resolveStationName(start);
-        String actualEnd = resolveStationName(end);
-        if (actualStart == null || actualEnd == null) {
-            return Collections.emptyList();
-        }
-        if (actualStart.equals(actualEnd)) {
-            return new ArrayList<>(List.of(actualStart));
+        if (actualStart == null) {
+            return Collections.emptyMap();
         }
 
-        Map<String, String> prev = new HashMap<>();
-        Set<String> visited = new HashSet<>();
+        Map<String, Integer> layers = new LinkedHashMap<>();
         Queue<String> queue = new LinkedList<>();
 
-        visited.add(actualStart);
+        layers.put(actualStart, 0);
         queue.add(actualStart);
 
-        boolean reached = false;
         while (!queue.isEmpty()) {
             String current = queue.poll();
-            if (current.equals(actualEnd)) {
-                reached = true;
-                break;
-            }
+            int currentLayer = layers.get(current);
             for (String neighbor : adjacency.get(current)) {
-                if (!visited.contains(neighbor)) {
-                    visited.add(neighbor);
-                    prev.put(neighbor, current);
+                if (!layers.containsKey(neighbor)) {
+                    layers.put(neighbor, currentLayer + 1);
                     queue.add(neighbor);
                 }
             }
         }
-
-        if (!reached) {
-            return Collections.emptyList();
-        }
-
-        LinkedList<String> path = new LinkedList<>();
-        String cur = actualEnd;
-        while (cur != null) {
-            path.addFirst(cur);
-            cur = prev.get(cur);
-        }
-        return path;
-    }
-
-    @Override
-    public List<String> dfsToLastStation(String lineName, String station) {
-        List<String> lineStations = getLineStations(lineName);
-        if (lineStations.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        String actualStation = resolveStationName(station);
-        if (actualStation == null || !lineStations.contains(actualStation)) {
-            return Collections.emptyList();
-        }
-
-        String lastStation = lineStations.get(lineStations.size() - 1);
-        if (actualStation.equals(lastStation)) {
-            return new ArrayList<>(List.of(actualStation));
-        }
-
-        Map<String, List<String>> localAdj = new LinkedHashMap<>();
-        for (String[] edge : lines.getOrDefault(lineName, Collections.emptyList())) {
-            localAdj.computeIfAbsent(edge[0], k -> new ArrayList<>()).add(edge[1]);
-            localAdj.computeIfAbsent(edge[1], k -> new ArrayList<>()).add(edge[0]);
-        }
-
-        Deque<String> stack = new ArrayDeque<>();
-        Map<String, String> parent = new HashMap<>();
-        Set<String> visited = new HashSet<>();
-
-        stack.push(actualStation);
-        visited.add(actualStation);
-        boolean found = false;
-
-        while (!stack.isEmpty()) {
-            String current = stack.pop();
-            if (current.equals(lastStation)) {
-                found = true;
-                break;
-            }
-            for (String neighbor : localAdj.getOrDefault(current, Collections.emptyList())) {
-                if (!visited.contains(neighbor)) {
-                    visited.add(neighbor);
-                    parent.put(neighbor, current);
-                    stack.push(neighbor);
-                }
-            }
-        }
-
-        if (!found) {
-            return Collections.emptyList();
-        }
-
-        LinkedList<String> path = new LinkedList<>();
-        String cur = lastStation;
-        while (cur != null) {
-            path.addFirst(cur);
-            cur = parent.get(cur);
-        }
-        return path;
+        return layers;
     }
 
     @Override
