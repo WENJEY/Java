@@ -35,7 +35,6 @@ public class LRTMapView extends Application {
     private static final double LEFT_MARGIN = 100;
     private static final double LINE_COLUMN_SPACING = 130;
     private static final double STATION_SPACING = 80;
-    private static final double BFS_LAYER_SPACING = 160;
 
     private static final String[] LINE_COLORS = {
             "#f38ba8", "#a6e3a1", "#89b4fa", "#f9e2af",
@@ -203,83 +202,45 @@ public class LRTMapView extends Application {
     }
 
     private Pane buildBfsUniquePane(Pane root, List<String> stations) {
-        Map<Integer, List<String>> byLayer = new TreeMap<>();
-        for (Map.Entry<String, Integer> entry : stationLayers.entrySet()) {
-            byLayer.computeIfAbsent(entry.getValue(), k -> new ArrayList<>()).add(entry.getKey());
-        }
+        LineLayoutResult layout = computeLinePositions(stations);
+        Map<String, OccurrencePoint> unique = mergeDuplicateStations(layout);
+        root.setPrefSize(layout.totalWidth, layout.totalHeight);
 
-        List<String> unreachable = new ArrayList<>();
-        for (String station : stations) {
-            if (!stationLayers.containsKey(station)) {
-                unreachable.add(station);
+        drawBfsTitle(root, layout.totalWidth);
+
+        for (LineRender lr : layout.lineRenders) {
+            for (int i = 0; i < lr.stationNames.size() - 1; i++) {
+                OccurrencePoint p1 = unique.get(lr.stationNames.get(i));
+                OccurrencePoint p2 = unique.get(lr.stationNames.get(i + 1));
+                if (p1 == null || p2 == null) continue;
+                Line segment = new Line(p1.x, p1.y, p2.x, p2.y);
+                segment.setStroke(Color.web(lr.color));
+                segment.setStrokeWidth(4);
+                root.getChildren().add(segment);
+            }
+            if (!lr.points.isEmpty()) {
+                Label lineLabel = new Label(lr.name);
+                lineLabel.setTextFill(Color.web(lr.color));
+                lineLabel.setFont(Font.font("System", FontWeight.BOLD, 12));
+                OccurrencePoint first = lr.points.get(0);
+                lineLabel.setLayoutX(first.x - 30);
+                lineLabel.setLayoutY(first.y - 54);
+                root.getChildren().add(lineLabel);
             }
         }
 
-        Map<String, OccurrencePoint> unique = new LinkedHashMap<>();
-        double maxY = TOP_MARGIN;
-        double maxX = LEFT_MARGIN;
-
-        for (Map.Entry<Integer, List<String>> entry : byLayer.entrySet()) {
-            int layer = entry.getKey();
-            List<String> layerStations = entry.getValue();
-            double x = LEFT_MARGIN + layer * BFS_LAYER_SPACING;
-            for (int i = 0; i < layerStations.size(); i++) {
-                String station = layerStations.get(i);
-                double y = TOP_MARGIN + i * STATION_SPACING;
-                unique.put(station, new OccurrencePoint(x, y, layerColor(layer)));
-                maxY = Math.max(maxY, y);
-            }
-            maxX = Math.max(maxX, x);
-        }
-
-        if (!unreachable.isEmpty()) {
-            double x = maxX + BFS_LAYER_SPACING;
-            for (int i = 0; i < unreachable.size(); i++) {
-                double y = TOP_MARGIN + i * STATION_SPACING;
-                unique.put(unreachable.get(i), new OccurrencePoint(x, y, ORPHAN_COLOR));
-                maxY = Math.max(maxY, y);
-            }
-            maxX = x;
-        }
-
-        double totalWidth = Math.max(maxX + LEFT_MARGIN + 80, CANVAS_WIDTH);
-        double totalHeight = Math.max(maxY + TOP_MARGIN, CANVAS_HEIGHT);
-        root.setPrefSize(totalWidth, totalHeight);
-
-        drawBfsTitle(root, totalWidth);
-
-        for (Map.Entry<Integer, List<String>> entry : byLayer.entrySet()) {
-            int layer = entry.getKey();
-            Label layerLabel = new Label("Layer " + layer);
-            layerLabel.setTextFill(Color.web(layerColor(layer)));
-            layerLabel.setFont(Font.font("System", FontWeight.BOLD, 12));
-            layerLabel.setLayoutX(LEFT_MARGIN + layer * BFS_LAYER_SPACING - 24);
-            layerLabel.setLayoutY(TOP_MARGIN - 48);
-            root.getChildren().add(layerLabel);
-        }
-        if (!unreachable.isEmpty()) {
-            Label unreachableLabel = new Label("Unreachable");
-            unreachableLabel.setTextFill(Color.web(ORPHAN_COLOR));
-            unreachableLabel.setFont(Font.font("System", FontWeight.BOLD, 12));
-            unreachableLabel.setLayoutX(maxX - 30);
-            unreachableLabel.setLayoutY(TOP_MARGIN - 48);
-            root.getChildren().add(unreachableLabel);
-        }
-
-        Map<String, String> lineColorByName = lineColors();
         for (String[] edge : graphData.getEdges()) {
+            if (graphData.isLineInternalEdge(edge[0], edge[1])) {
+                continue;
+            }
             OccurrencePoint p1 = unique.get(edge[0]);
             OccurrencePoint p2 = unique.get(edge[1]);
             if (p1 == null || p2 == null) continue;
-
-            Line segment = new Line(p1.x, p1.y, p2.x, p2.y);
-            String edgeColor = colorForEdge(edge[0], edge[1], lineColorByName);
-            segment.setStroke(Color.web(edgeColor));
-            segment.setStrokeWidth(graphData.isLineInternalEdge(edge[0], edge[1]) ? 3 : 2);
-            if (!graphData.isLineInternalEdge(edge[0], edge[1])) {
-                segment.getStrokeDashArray().addAll(6.0, 6.0);
-            }
-            root.getChildren().add(segment);
+            Line manualEdge = new Line(p1.x, p1.y, p2.x, p2.y);
+            manualEdge.setStroke(Color.web(MANUAL_EDGE_COLOR));
+            manualEdge.setStrokeWidth(2);
+            manualEdge.getStrokeDashArray().addAll(6.0, 6.0);
+            root.getChildren().add(manualEdge);
         }
 
         for (Map.Entry<String, OccurrencePoint> entry : unique.entrySet()) {
@@ -287,32 +248,33 @@ public class LRTMapView extends Application {
             OccurrencePoint p = entry.getValue();
             Integer layer = stationLayers.get(station);
             boolean isStart = station.equals(bfsStartStation);
-            boolean isInterchange = graphData.getLinesForStation(station).size() > 1;
+            boolean isInterchange = layout.occurrences.getOrDefault(station, List.of()).size() > 1;
             drawStationCircle(root, p, station, isInterchange, layer, isStart);
         }
 
         return root;
     }
 
-    private Map<String, String> lineColors() {
-        Map<String, String> colors = new LinkedHashMap<>();
-        List<String> lineNames = new ArrayList<>(graphData.getLines());
-        for (int i = 0; i < lineNames.size(); i++) {
-            colors.put(lineNames.get(i), LINE_COLORS[i % LINE_COLORS.length]);
-        }
-        return colors;
-    }
-
-    private String colorForEdge(String a, String b, Map<String, String> lineColorByName) {
-        for (Map.Entry<String, String> entry : lineColorByName.entrySet()) {
-            List<String> stationsOnLine = graphData.getLineStations(entry.getKey());
-            int ia = stationsOnLine.indexOf(a);
-            int ib = stationsOnLine.indexOf(b);
-            if (ia != -1 && ib != -1 && Math.abs(ia - ib) == 1) {
-                return entry.getValue();
+    private Map<String, OccurrencePoint> mergeDuplicateStations(LineLayoutResult layout) {
+        Map<String, OccurrencePoint> unique = new LinkedHashMap<>();
+        for (Map.Entry<String, List<OccurrencePoint>> entry : layout.occurrences.entrySet()) {
+            List<OccurrencePoint> points = entry.getValue();
+            if (points.size() == 1) {
+                unique.put(entry.getKey(), points.get(0));
+                continue;
             }
+            double x = 0;
+            double y = 0;
+            for (OccurrencePoint p : points) {
+                x += p.x;
+                y += p.y;
+            }
+            unique.put(entry.getKey(), new OccurrencePoint(
+                    x / points.size(),
+                    y / points.size(),
+                    points.get(0).color));
         }
-        return MANUAL_EDGE_COLOR;
+        return unique;
     }
 
     private void drawStationCircle(Pane root, OccurrencePoint p, String station,
@@ -355,7 +317,7 @@ public class LRTMapView extends Application {
         if (bfsStartStation == null || stationLayers.isEmpty()) {
             return;
         }
-        Label title = new Label("BFS from " + bfsStartStation + "  —  each station shown once (L0 = start)");
+        Label title = new Label("BFS from " + bfsStartStation + "  —  same line map, shared stations merged in the middle (L0 = start)");
         title.setTextFill(Color.WHITE);
         title.setFont(Font.font("System", FontWeight.BOLD, 14));
         title.setLayoutX(LEFT_MARGIN - 20);
@@ -420,7 +382,7 @@ public class LRTMapView extends Application {
                 occurrences.computeIfAbsent(stationsOnLine.get(i), k -> new ArrayList<>()).add(point);
                 maxY = Math.max(maxY, y);
             }
-            lineRenders.add(new LineRender(lineName, color, linePoints));
+            lineRenders.add(new LineRender(lineName, color, linePoints, stationsOnLine));
             x += LINE_COLUMN_SPACING;
         }
 
@@ -463,11 +425,13 @@ public class LRTMapView extends Application {
         final String name;
         final String color;
         final List<OccurrencePoint> points;
+        final List<String> stationNames;
 
-        LineRender(String name, String color, List<OccurrencePoint> points) {
+        LineRender(String name, String color, List<OccurrencePoint> points, List<String> stationNames) {
             this.name = name;
             this.color = color;
             this.points = points;
+            this.stationNames = stationNames;
         }
     }
 
