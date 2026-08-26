@@ -223,7 +223,10 @@ public class LRTMapView extends Application {
                 OccurrencePoint p1 = unique.get(lr.stationNames.get(i));
                 OccurrencePoint p2 = unique.get(lr.stationNames.get(i + 1));
                 if (p1 == null || p2 == null) continue;
-                drawRoutedEdge(root, p1, p2, lr.color, 4, false);
+                Line segment = new Line(p1.x, p1.y, p2.x, p2.y);
+                segment.setStroke(Color.web(lr.color));
+                segment.setStrokeWidth(4);
+                root.getChildren().add(segment);
             }
             if (!lr.points.isEmpty()) {
                 Label lineLabel = new Label(lr.name);
@@ -243,7 +246,11 @@ public class LRTMapView extends Application {
             OccurrencePoint p1 = unique.get(edge[0]);
             OccurrencePoint p2 = unique.get(edge[1]);
             if (p1 == null || p2 == null) continue;
-            drawRoutedEdge(root, p1, p2, MANUAL_EDGE_COLOR, 2, true);
+            Line manualEdge = new Line(p1.x, p1.y, p2.x, p2.y);
+            manualEdge.setStroke(Color.web(MANUAL_EDGE_COLOR));
+            manualEdge.setStrokeWidth(2);
+            manualEdge.getStrokeDashArray().addAll(6.0, 6.0);
+            root.getChildren().add(manualEdge);
         }
 
         for (Map.Entry<String, OccurrencePoint> entry : unique.entrySet()) {
@@ -350,28 +357,6 @@ public class LRTMapView extends Application {
             }
         }
         return false;
-    }
-
-    private void drawRoutedEdge(Pane root, OccurrencePoint p1, OccurrencePoint p2,
-                                String color, double width, boolean dashed) {
-        List<double[]> points = new ArrayList<>();
-        points.add(new double[]{p1.x, p1.y});
-        if (Math.abs(p1.x - p2.x) > 55 && Math.abs(p1.y - p2.y) > 40) {
-            points.add(new double[]{p1.x, p2.y});
-        }
-        points.add(new double[]{p2.x, p2.y});
-
-        for (int i = 0; i < points.size() - 1; i++) {
-            Line segment = new Line(
-                    points.get(i)[0], points.get(i)[1],
-                    points.get(i + 1)[0], points.get(i + 1)[1]);
-            segment.setStroke(Color.web(color));
-            segment.setStrokeWidth(width);
-            if (dashed) {
-                segment.getStrokeDashArray().addAll(6.0, 6.0);
-            }
-            root.getChildren().add(segment);
-        }
     }
 
     private void drawStationCircle(Pane root, OccurrencePoint p, String station,
