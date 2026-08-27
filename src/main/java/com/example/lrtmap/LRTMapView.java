@@ -23,17 +23,20 @@ public class LRTMapView extends Application {
     private static Graph graphData;
     private static boolean fxStarted = false;
 
-    private static List<String> highlightedStations = Collections.emptyList();
+    private static Map<String, Integer> stationLayers = Collections.emptyMap();
+    private static String bfsStartStation = null;
 
     private static Pane currentPane;
     private static Stage currentStage;
 
-    private static final double CANVAS_WIDTH = 900;
-    private static final double CANVAS_HEIGHT = 900;
+    private static final double CANVAS_WIDTH = 1200;
+    private static final double CANVAS_HEIGHT = 800;
     private static final double TOP_MARGIN = 100;
     private static final double LEFT_MARGIN = 100;
     private static final double LINE_COLUMN_SPACING = 130;
     private static final double STATION_SPACING = 80;
+    private static final double BFS_LINE_COLUMN_SPACING = 200;
+    private static final double BFS_STATION_SPACING = 92;
 
     private static final String[] LINE_COLORS = {
             "#f38ba8", "#a6e3a1", "#89b4fa", "#f9e2af",
@@ -43,16 +46,23 @@ public class LRTMapView extends Application {
     private static final String INTERCHANGE_CONNECTOR_COLOR = "#ffffff";
     private static final String MANUAL_EDGE_COLOR = "#9399b2";
     private static final String CANVAS_BACKGROUND = "#1e1e2e";
-    private static final String HIGHLIGHT_COLOR = "#ff3b3b";
+    private static final String LAYER_BADGE_TEXT = "#1e1e2e";
+    private static final String[] LAYER_COLORS = {
+            "#ff3b3b", "#fab387", "#f9e2af", "#a6e3a1",
+            "#89b4fa", "#cba6f7", "#94e2d5", "#f38ba8"
+    };
 
     public static void show(Graph graph) {
         graphData = graph;
-        highlightedStations = Collections.emptyList();
+        stationLayers = Collections.emptyMap();
+        bfsStartStation = null;
         display();
     }
-    public static void highlightRoute(Graph graph, List<String> path) {
+
+    public static void showBfsLayers(Graph graph, Map<String, Integer> layers, String startStation) {
         graphData = graph;
-        highlightedStations = (path == null) ? Collections.emptyList() : new ArrayList<>(path);
+        stationLayers = (layers == null) ? Collections.emptyMap() : new LinkedHashMap<>(layers);
+        bfsStartStation = startStation;
         display();
     }
 
@@ -79,7 +89,7 @@ public class LRTMapView extends Application {
 
         Scene scene = new Scene(scrollPane, CANVAS_WIDTH, CANVAS_HEIGHT);
         stage.setScene(scene);
-        stage.setTitle("LRT Navigation Map");
+        applyStageTitle(stage);
         stage.show();
     }
 
@@ -90,8 +100,17 @@ public class LRTMapView extends Application {
         currentPane.setPrefSize(fresh.getPrefWidth(), fresh.getPrefHeight());
 
         if (currentStage != null) {
+            applyStageTitle(currentStage);
             currentStage.show();
             currentStage.toFront();
+        }
+    }
+
+    private static void applyStageTitle(Stage stage) {
+        if (bfsStartStation != null && !stationLayers.isEmpty()) {
+            stage.setTitle("BFS layers from " + bfsStartStation);
+        } else {
+            stage.setTitle("LRT Navigation Map");
         }
     }
 
@@ -113,6 +132,13 @@ public class LRTMapView extends Application {
             return root;
         }
 
+        if (bfsStartStation != null && !stationLayers.isEmpty()) {
+            return buildBfsUniquePane(root, stations);
+        }
+        return buildLineMapPane(root, stations);
+    }
+
+    private Pane buildLineMapPane(Pane root, List<String> stations) {
         LineLayoutResult layout = computeLinePositions(stations);
         root.setPrefSize(layout.totalWidth, layout.totalHeight);
 
@@ -125,20 +151,15 @@ public class LRTMapView extends Application {
                 segment.setStrokeWidth(4);
                 root.getChildren().add(segment);
             }
-            Label lineLabel = new Label(lr.name);
-            lineLabel.setTextFill(Color.web(lr.color));
-            lineLabel.setFont(Font.font("System", FontWeight.BOLD, 12));
-
             if (!lr.points.isEmpty()) {
+                Label lineLabel = new Label(lr.name);
+                lineLabel.setTextFill(Color.web(lr.color));
+                lineLabel.setFont(Font.font("System", FontWeight.BOLD, 12));
                 OccurrencePoint first = lr.points.get(0);
                 lineLabel.setLayoutX(first.x - 30);
                 lineLabel.setLayoutY(first.y - 40);
-            } else {
-                lineLabel.setLayoutX(lr.x - 30);
-                lineLabel.setLayoutY(TOP_MARGIN - 40);
+                root.getChildren().add(lineLabel);
             }
-
-            root.getChildren().add(lineLabel);
         }
 
         for (String[] edge : graphData.getEdges()) {
@@ -164,6 +185,7 @@ public class LRTMapView extends Application {
                 Line connector = new Line(p1.x, p1.y, p2.x, p2.y);
                 connector.setStroke(Color.web(INTERCHANGE_CONNECTOR_COLOR));
                 connector.setStrokeWidth(2);
+                connector.getStrokeDashArray().addAll(3.0, 4.0);
                 root.getChildren().add(connector);
             }
         }
@@ -174,174 +196,252 @@ public class LRTMapView extends Application {
             boolean isInterchange = points.size() > 1;
 
             for (OccurrencePoint p : points) {
-                Circle circle = new Circle(p.x, p.y, isInterchange ? 16 : 14);
-                if (isInterchange) {
-                    circle.setFill(Color.web(CANVAS_BACKGROUND));
-                    circle.setStroke(Color.web(p.color));
-                    circle.setStrokeWidth(3);
-                } else {
-                    circle.setFill(Color.web(p.color));
-                    circle.setStroke(Color.WHITE);
-                    circle.setStrokeWidth(1.5);
-                }
-                root.getChildren().add(circle);
-
-                Label label = new Label(station);
-                label.setTextFill(Color.WHITE);
-                label.setFont(Font.font("System", FontWeight.BOLD, 10));
-                label.setLayoutX(p.x + 18);
-                label.setLayoutY(p.y - 7);
-                label.setStyle(
-                        "-fx-background-color: " + CANVAS_BACKGROUND + ";" +
-                                "-fx-background-radius: 3;" +
-                                "-fx-padding: 1 4 1 4;"
-                );
-                root.getChildren().add(label);
+                drawStationCircle(root, p, station, isInterchange, null, false, false);
             }
         }
-
-        drawHighlightOverlay(root, layout);
 
         return root;
     }
 
-    private void drawHighlightOverlay(Pane root, LineLayoutResult layout) {
-        if (highlightedStations == null || highlightedStations.isEmpty()) return;
+    private Pane buildBfsUniquePane(Pane root, List<String> stations) {
+        LineLayoutResult layout = computeLinePositions(stations, BFS_LINE_COLUMN_SPACING, BFS_STATION_SPACING);
+        Map<String, OccurrencePoint> unique = mergeDuplicateStations(layout);
+        unique = spreadOverlappingStations(unique);
 
-        List<String> path = highlightedStations;
-        int n = path.size();
+        double maxX = layout.totalWidth;
+        double maxY = layout.totalHeight;
+        for (OccurrencePoint p : unique.values()) {
+            maxX = Math.max(maxX, p.x + 200);
+            maxY = Math.max(maxY, p.y + TOP_MARGIN);
+        }
+        root.setPrefSize(maxX, maxY);
 
-        if (n == 1) {
-            List<OccurrencePoint> points = layout.occurrences.get(path.get(0));
-            if (points != null) {
-                for (OccurrencePoint p : points) {
-                    drawHighlightRing(root, p);
+        drawBfsTitle(root, maxX);
+
+        for (LineRender lr : layout.lineRenders) {
+            for (int i = 0; i < lr.stationNames.size() - 1; i++) {
+                OccurrencePoint p1 = unique.get(lr.stationNames.get(i));
+                OccurrencePoint p2 = unique.get(lr.stationNames.get(i + 1));
+                if (p1 == null || p2 == null) continue;
+                Line segment = new Line(p1.x, p1.y, p2.x, p2.y);
+                segment.setStroke(Color.web(lr.color));
+                segment.setStrokeWidth(4);
+                root.getChildren().add(segment);
+            }
+            if (!lr.points.isEmpty()) {
+                Label lineLabel = new Label(lr.name);
+                lineLabel.setTextFill(Color.web(lr.color));
+                lineLabel.setFont(Font.font("System", FontWeight.BOLD, 12));
+                OccurrencePoint first = lr.points.get(0);
+                lineLabel.setLayoutX(first.x - 30);
+                lineLabel.setLayoutY(first.y - 54);
+                root.getChildren().add(lineLabel);
+            }
+        }
+
+        for (String[] edge : graphData.getEdges()) {
+            if (graphData.isLineInternalEdge(edge[0], edge[1])) {
+                continue;
+            }
+            OccurrencePoint p1 = unique.get(edge[0]);
+            OccurrencePoint p2 = unique.get(edge[1]);
+            if (p1 == null || p2 == null) continue;
+            Line manualEdge = new Line(p1.x, p1.y, p2.x, p2.y);
+            manualEdge.setStroke(Color.web(MANUAL_EDGE_COLOR));
+            manualEdge.setStrokeWidth(2);
+            manualEdge.getStrokeDashArray().addAll(6.0, 6.0);
+            root.getChildren().add(manualEdge);
+        }
+
+        for (Map.Entry<String, OccurrencePoint> entry : unique.entrySet()) {
+            String station = entry.getKey();
+            OccurrencePoint p = entry.getValue();
+            Integer layer = stationLayers.get(station);
+            boolean isStart = station.equals(bfsStartStation);
+            boolean isInterchange = layout.occurrences.getOrDefault(station, List.of()).size() > 1;
+            boolean labelLeft = shouldPlaceLabelLeft(station, p, unique);
+            drawStationCircle(root, p, station, isInterchange, layer, isStart, labelLeft);
+        }
+
+        return root;
+    }
+
+    private Map<String, OccurrencePoint> mergeDuplicateStations(LineLayoutResult layout) {
+        Map<String, OccurrencePoint> unique = new LinkedHashMap<>();
+        for (Map.Entry<String, List<OccurrencePoint>> entry : layout.occurrences.entrySet()) {
+            List<OccurrencePoint> points = entry.getValue();
+            if (points.size() == 1) {
+                unique.put(entry.getKey(), points.get(0));
+                continue;
+            }
+            double x = 0;
+            List<Double> ys = new ArrayList<>();
+            for (OccurrencePoint p : points) {
+                x += p.x;
+                ys.add(p.y);
+            }
+            Collections.sort(ys);
+            double y = ys.get(ys.size() / 2);
+            unique.put(entry.getKey(), new OccurrencePoint(
+                    x / points.size(),
+                    y,
+                    points.get(0).color));
+        }
+        return unique;
+    }
+
+    private Map<String, OccurrencePoint> spreadOverlappingStations(Map<String, OccurrencePoint> unique) {
+        List<String> names = new ArrayList<>(unique.keySet());
+        int n = names.size();
+        if (n < 2) {
+            return unique;
+        }
+
+        double[] xs = new double[n];
+        double[] ys = new double[n];
+        String[] colors = new String[n];
+        for (int i = 0; i < n; i++) {
+            OccurrencePoint p = unique.get(names.get(i));
+            xs[i] = p.x;
+            ys[i] = p.y;
+            colors[i] = p.color;
+        }
+
+        final double minDist = 78;
+        for (int iter = 0; iter < n; iter++) {
+            Integer[] order = new Integer[n];
+            for (int i = 0; i < n; i++) {
+                order[i] = i;
+            }
+            Arrays.sort(order, Comparator.comparingDouble(i -> ys[i]));
+
+            boolean moved = false;
+            for (int a = 1; a < n; a++) {
+                int i = order[a];
+                for (int b = 0; b < a; b++) {
+                    int j = order[b];
+                    double dx = xs[i] - xs[j];
+                    double dy = ys[i] - ys[j];
+                    if (Math.hypot(dx, dy) < minDist) {
+                        double needed = ys[j] + minDist;
+                        if (needed > ys[i] + 0.5) {
+                            ys[i] = needed;
+                            moved = true;
+                        }
+                    }
                 }
             }
+            if (!moved) {
+                break;
+            }
+        }
+
+        Map<String, OccurrencePoint> spread = new LinkedHashMap<>();
+        for (int i = 0; i < n; i++) {
+            spread.put(names.get(i), new OccurrencePoint(xs[i], ys[i], colors[i]));
+        }
+        return spread;
+    }
+
+    private boolean shouldPlaceLabelLeft(String station, OccurrencePoint p,
+                                         Map<String, OccurrencePoint> unique) {
+        for (Map.Entry<String, OccurrencePoint> entry : unique.entrySet()) {
+            if (entry.getKey().equals(station)) {
+                continue;
+            }
+            OccurrencePoint other = entry.getValue();
+            boolean closeRight = other.x > p.x && other.x - p.x < 150;
+            boolean sameRow = Math.abs(other.y - p.y) < 40;
+            if (closeRight && sameRow && p.x > LEFT_MARGIN + 40) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void drawStationCircle(Pane root, OccurrencePoint p, String station,
+                                   boolean isInterchange, Integer layer, boolean isStart,
+                                   boolean labelLeft) {
+        if (layer != null) {
+            drawLayerRing(root, p, layer, isStart);
+        }
+
+        Circle circle = new Circle(p.x, p.y, isInterchange ? 16 : 14);
+        if (isInterchange) {
+            circle.setFill(Color.web(CANVAS_BACKGROUND));
+            circle.setStroke(Color.web(p.color));
+            circle.setStrokeWidth(3);
+        } else {
+            circle.setFill(Color.web(p.color));
+            circle.setStroke(Color.WHITE);
+            circle.setStrokeWidth(1.5);
+        }
+        root.getChildren().add(circle);
+
+        String stationText = (layer == null) ? station : station + "  L" + layer;
+        Label label = new Label(stationText);
+        label.setTextFill(Color.WHITE);
+        label.setFont(Font.font("System", FontWeight.BOLD, 10));
+        label.setLayoutY(p.y - 7);
+        label.setStyle(
+                "-fx-background-color: " + CANVAS_BACKGROUND + ";" +
+                        "-fx-background-radius: 3;" +
+                        "-fx-padding: 1 4 1 4;"
+        );
+        if (labelLeft) {
+            double estimatedWidth = stationText.length() * 6.4 + 10;
+            label.setLayoutX(p.x - 22 - estimatedWidth);
+        } else {
+            label.setLayoutX(p.x + 22);
+        }
+        root.getChildren().add(label);
+
+        if (layer != null) {
+            drawLayerBadge(root, p, layer);
+        }
+    }
+
+    private void drawBfsTitle(Pane root, double totalWidth) {
+        if (bfsStartStation == null || stationLayers.isEmpty()) {
             return;
         }
-
-        String[] edgeLine = new String[n - 1];
-        for (int i = 0; i < n - 1; i++) {
-            String a = path.get(i);
-            String b = path.get(i + 1);
-            List<String> candidates = commonAdjacentLines(a, b);
-            String prevLine = (i > 0) ? edgeLine[i - 1] : null;
-            if (prevLine != null && candidates.contains(prevLine)) {
-                edgeLine[i] = prevLine;
-            } else if (!candidates.isEmpty()) {
-                edgeLine[i] = candidates.get(0);
-            } else {
-                edgeLine[i] = null;
-            }
-        }
-
-        List<OccurrencePoint[]> resolved = new ArrayList<>();
-        for (int i = 0; i < n; i++) {
-            String station = path.get(i);
-            String enterLine = (i > 0) ? edgeLine[i - 1] : null;
-            String exitLine = (i < n - 1) ? edgeLine[i] : null;
-
-            OccurrencePoint enterPt = pointOnLine(layout, enterLine, station);
-            OccurrencePoint exitPt = pointOnLine(layout, exitLine, station);
-
-            if (enterPt != null && exitPt != null) {
-                resolved.add(enterPt == exitPt ? new OccurrencePoint[]{enterPt}
-                        : new OccurrencePoint[]{enterPt, exitPt});
-            } else if (enterPt != null) {
-                resolved.add(new OccurrencePoint[]{enterPt});
-            } else if (exitPt != null) {
-                resolved.add(new OccurrencePoint[]{exitPt});
-            } else {
-                OccurrencePoint fb = firstOccurrence(layout, station);
-                resolved.add(fb == null ? new OccurrencePoint[0] : new OccurrencePoint[]{fb});
-            }
-        }
-
-        for (int i = 0; i < n - 1; i++) {
-            OccurrencePoint[] fromPts = resolved.get(i);
-            OccurrencePoint[] toPts = resolved.get(i + 1);
-            if (fromPts.length == 0 || toPts.length == 0) continue;
-            drawHighlightLine(root, fromPts[fromPts.length - 1], toPts[0]);
-        }
-
-        for (OccurrencePoint[] pts : resolved) {
-            if (pts.length == 2) {
-                drawHighlightLine(root, pts[0], pts[1]);
-            }
-        }
-
-        for (int i = 0; i < n; i++) {
-            for (OccurrencePoint p : resolved.get(i)) {
-                drawHighlightRing(root, p);
-            }
-            if (resolved.get(i).length > 0) {
-                drawOrderBadge(root, resolved.get(i)[0], i + 1);
-            }
-        }
+        Label title = new Label("BFS from " + bfsStartStation + "  —  same line map, shared stations merged in the middle (L0 = start)");
+        title.setTextFill(Color.WHITE);
+        title.setFont(Font.font("System", FontWeight.BOLD, 14));
+        title.setLayoutX(LEFT_MARGIN - 20);
+        title.setLayoutY(24);
+        title.setPrefWidth(Math.max(totalWidth - 40, 400));
+        root.getChildren().add(title);
     }
 
-    private List<String> commonAdjacentLines(String a, String b) {
-        List<String> result = new ArrayList<>();
-        for (String lineName : graphData.getLines()) {
-            List<String> stationsOnLine = graphData.getLineStations(lineName);
-            int ia = stationsOnLine.indexOf(a);
-            int ib = stationsOnLine.indexOf(b);
-            if (ia != -1 && ib != -1 && Math.abs(ia - ib) == 1) {
-                result.add(lineName);
-            }
-        }
-        return result;
-    }
-
-    private OccurrencePoint pointOnLine(LineLayoutResult layout, String lineName, String station) {
-        if (lineName == null) return null;
-        for (LineRender lr : layout.lineRenders) {
-            if (lr.name.equals(lineName)) {
-                List<String> stationsOnLine = graphData.getLineStations(lineName);
-                int idx = stationsOnLine.indexOf(station);
-                if (idx == -1) return null;
-                return lr.points.get(idx);
-            }
-        }
-        return null;
-    }
-
-    private void drawHighlightLine(Pane root, OccurrencePoint p1, OccurrencePoint p2) {
-        Line highlightLine = new Line(p1.x, p1.y, p2.x, p2.y);
-        highlightLine.setStroke(Color.web(HIGHLIGHT_COLOR));
-        highlightLine.setStrokeWidth(6);
-        DropShadow glow = new DropShadow();
-        glow.setColor(Color.web(HIGHLIGHT_COLOR));
-        glow.setRadius(14);
-        highlightLine.setEffect(glow);
-        root.getChildren().add(highlightLine);
-    }
-
-    private void drawHighlightRing(Pane root, OccurrencePoint p) {
-        Circle ring = new Circle(p.x, p.y, 20);
+    private void drawLayerRing(Pane root, OccurrencePoint p, int layer, boolean isStart) {
+        Circle ring = new Circle(p.x, p.y, isStart ? 24 : 20);
         ring.setFill(Color.TRANSPARENT);
-        ring.setStroke(Color.web(HIGHLIGHT_COLOR));
-        ring.setStrokeWidth(3);
+        ring.setStroke(Color.web(layerColor(layer)));
+        ring.setStrokeWidth(isStart ? 4 : 3);
         DropShadow glow = new DropShadow();
-        glow.setColor(Color.web(HIGHLIGHT_COLOR));
-        glow.setRadius(10);
+        glow.setColor(Color.web(layerColor(layer)));
+        glow.setRadius(isStart ? 14 : 8);
         ring.setEffect(glow);
         root.getChildren().add(ring);
     }
 
-    private void drawOrderBadge(Pane root, OccurrencePoint p, int order) {
-        Label label = new Label(String.valueOf(order));
-        label.setTextFill(Color.web(CANVAS_BACKGROUND));
-        label.setFont(Font.font("System", FontWeight.BOLD, 11));
-        label.setStyle(
-                "-fx-background-color: " + HIGHLIGHT_COLOR + ";" +
+    private void drawLayerBadge(Pane root, OccurrencePoint p, int layer) {
+        Label badge = new Label("L" + layer);
+        badge.setTextFill(Color.web(LAYER_BADGE_TEXT));
+        badge.setFont(Font.font("System", FontWeight.BOLD, 11));
+        badge.setStyle(
+                "-fx-background-color: " + layerColor(layer) + ";" +
                         "-fx-background-radius: 8;" +
                         "-fx-padding: 1 5 1 5;"
         );
-        label.setLayoutX(p.x - 8);
-        label.setLayoutY(p.y - 32);
-        root.getChildren().add(label);
+        badge.setLayoutX(p.x - 12);
+        badge.setLayoutY(p.y - 34);
+        root.getChildren().add(badge);
+    }
+
+    private static String layerColor(int layer) {
+        return LAYER_COLORS[Math.floorMod(layer, LAYER_COLORS.length)];
     }
 
     private OccurrencePoint firstOccurrence(LineLayoutResult layout, String station) {
@@ -350,6 +450,11 @@ public class LRTMapView extends Application {
     }
 
     private LineLayoutResult computeLinePositions(List<String> allStations) {
+        return computeLinePositions(allStations, LINE_COLUMN_SPACING, STATION_SPACING);
+    }
+
+    private LineLayoutResult computeLinePositions(List<String> allStations,
+                                                  double columnSpacing, double rowSpacing) {
         Map<String, List<OccurrencePoint>> occurrences = new LinkedHashMap<>();
         List<String> lineNames = new ArrayList<>(graphData.getLines());
         List<LineRender> lineRenders = new ArrayList<>();
@@ -364,14 +469,14 @@ public class LRTMapView extends Application {
 
             List<OccurrencePoint> linePoints = new ArrayList<>();
             for (int i = 0; i < stationsOnLine.size(); i++) {
-                double y = TOP_MARGIN + i * STATION_SPACING;
+                double y = TOP_MARGIN + i * rowSpacing;
                 OccurrencePoint point = new OccurrencePoint(x, y, color);
                 linePoints.add(point);
                 occurrences.computeIfAbsent(stationsOnLine.get(i), k -> new ArrayList<>()).add(point);
                 maxY = Math.max(maxY, y);
             }
-            lineRenders.add(new LineRender(lineName, color, linePoints, x));
-            x += LINE_COLUMN_SPACING;
+            lineRenders.add(new LineRender(lineName, color, linePoints, stationsOnLine));
+            x += columnSpacing;
         }
 
         Set<String> placedStations = occurrences.keySet();
@@ -382,13 +487,13 @@ public class LRTMapView extends Application {
             }
         }
         for (int i = 0; i < orphanStations.size(); i++) {
-            double y = TOP_MARGIN + i * STATION_SPACING;
+            double y = TOP_MARGIN + i * rowSpacing;
             OccurrencePoint point = new OccurrencePoint(x, y, ORPHAN_COLOR);
             occurrences.computeIfAbsent(orphanStations.get(i), k -> new ArrayList<>()).add(point);
             maxY = Math.max(maxY, y);
         }
         if (!orphanStations.isEmpty()) {
-            x += LINE_COLUMN_SPACING;
+            x += columnSpacing;
         }
 
         double totalWidth = Math.max(x + LEFT_MARGIN, CANVAS_WIDTH);
@@ -413,14 +518,13 @@ public class LRTMapView extends Application {
         final String name;
         final String color;
         final List<OccurrencePoint> points;
-        final double x;
+        final List<String> stationNames;
 
-        LineRender(String name, String color,
-                   List<OccurrencePoint> points, double x) {
+        LineRender(String name, String color, List<OccurrencePoint> points, List<String> stationNames) {
             this.name = name;
             this.color = color;
             this.points = points;
-            this.x = x;
+            this.stationNames = stationNames;
         }
     }
 

@@ -1,10 +1,11 @@
 package com.example.lrtmap;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
+import java.util.TreeMap;
 
 public class Main {
 
@@ -358,146 +359,50 @@ public class Main {
         }
     }
 
-    public static void SearchMenu(Scanner s) {
-        clearScreen();
-        int choice = -1;
-        while (true) {
-            System.out.println("\n--------------------------------------------");
-            System.out.printf("%25s", "Search for a LRT Station\n");
-            System.out.println("--------------------------------------------");
-            System.out.println("[1] Search a Station (view previous/next station)");
-            System.out.println("[2] Find Shortest Route (between two stations)");
-            System.out.println("[3] Return to the main menu");
-            System.out.print("Enter your choice : ");
-
-            if (s.hasNextInt()) {
-                choice = s.nextInt();
-                s.nextLine();
-
-                if (choice >= 1 && choice <= 3) {
-                    break;
-                } else {
-                    System.out.println("Invalid selection! Please enter a number from 1 to 3.");
-                }
-            } else {
-                System.out.println("Invalid input! Please enter numbers only.");
-                s.next();
-            }
-        }
-
-        switch (choice) {
-            case 1:
-                SearchStationInfo(s);
-                break;
-            case 2:
-                FindShortestRoute(s);
-                break;
-            case 3:
-                MainPage(s);
-                break;
-            default:
-                System.out.println("Please only enter number between 1 - 3.");
-        }
-    }
-
-    public static void SearchStationInfo(Scanner s) {
+    public static void BfsTraversal(Scanner s) {
         clearScreen();
         char choice;
         System.out.println("\n--------------------------------------------");
-        System.out.printf("%25s", "Search a Station\n");
-        System.out.println("--------------------------------------------");
-        System.out.println("Press '0' to back to previous page");
-        System.out.print("Enter the station name to search : ");
-        String stationName = s.nextLine().trim();
-
-        if (stationName.equals("0")) {
-            SearchMenu(s);
-            return;
-        }
-
-        String actualName = graph.resolveStationName(stationName);
-
-        if (actualName == null) {
-            System.out.println("\nStation '" + stationName + "' does not exist in the system.");
-        } else {
-            LRTMapView.highlightRoute(graph, Collections.singletonList(actualName));
-
-            List<String> stationLines = graph.getLinesForStation(actualName);
-            if (stationLines.isEmpty()) {
-                System.out.println("\nStation '" + actualName + "' exists but is not connected to any line yet.");
-            } else {
-                System.out.println("\nStation '" + actualName + "' found on the following line(s):");
-                for (String lineName : stationLines) {
-                    List<String> stationsOnLine = graph.getLineStations(lineName);
-                    int idx = stationsOnLine.indexOf(actualName);
-                    String previous = (idx > 0) ? stationsOnLine.get(idx - 1) : "None (start of the line)";
-                    String next = (idx < stationsOnLine.size() - 1) ? stationsOnLine.get(idx + 1) : "None (end of the line)";
-
-                    System.out.println("\nLine: " + lineName);
-                    System.out.println("Previous station : " + previous);
-                    System.out.println("Next station     : " + next);
-
-                    List<String> dfsPath = graph.dfsToLastStation(lineName, actualName);
-                    if (!dfsPath.isEmpty()) {
-                        System.out.println("DFS to last station on this line : " + String.join(" -> ", dfsPath));
-                    }
-                }
-            }
-        }
-
-        System.out.print("\nSearch again? (Y/N) : ");
-        choice = s.next().charAt(0);
-        s.nextLine();
-        if (choice == 'Y' || choice == 'y') {
-            SearchStationInfo(s);
-        } else {
-            SearchMenu(s);
-        }
-    }
-
-    public static void FindShortestRoute(Scanner s) {
-        clearScreen();
-        char choice;
-        System.out.println("\n--------------------------------------------");
-        System.out.printf("%22s", "Find Shortest Route\n");
+        System.out.printf("%24s", "BFS Traversal\n");
         System.out.println("--------------------------------------------");
         System.out.println("Press '0' to back to previous page");
 
-        System.out.println("\nSelect the starting station:");
         String start = selectStation(s, "Please enter the starting station number (Enter 0 to return to Main Page)\n");
         if (start == null) {
-            SearchMenu(s);
+            MainPage(s);
             return;
         }
 
-        System.out.println("\nSelect the destination station:");
-        String end = selectStation(s, "Please enter the destination station number (Enter 0 to return to Main Page)\n");
-        if (end == null) {
-            SearchMenu(s);
-            return;
-        }
-
-        List<String> path = graph.bfsForShortestPath(start, end); // BFS shortest path
-
-        if (path.isEmpty()) {
-            System.out.println("\nNo route found between '" + start + "' and '" + end + "'.");
+        Map<String, Integer> layers = graph.bfsLayers(start);
+        if (layers.isEmpty()) {
+            System.out.println("\nStation '" + start + "' was not found.");
         } else {
-            int stops = path.size() - 1;
-            System.out.println("\nRoute found (" + stops + " stop" + (stops == 1 ? "" : "s") + "):");
-            for (int i = 0; i < path.size(); i++) {
-                System.out.println("  " + (i + 1) + ". " + path.get(i));
+            Map<Integer, List<String>> byLayer = new TreeMap<>();
+            for (Map.Entry<String, Integer> entry : layers.entrySet()) {
+                byLayer.computeIfAbsent(entry.getValue(), k -> new ArrayList<>()).add(entry.getKey());
             }
-            System.out.println("\nOpening LRT map window with route highlighted...");
-            LRTMapView.highlightRoute(graph, path);
+
+            System.out.println("\nBFS from '" + start + "' (layer 0) to the end of the graph:");
+            for (Map.Entry<Integer, List<String>> entry : byLayer.entrySet()) {
+                System.out.println("  Layer " + entry.getKey() + " : " + String.join(", ", entry.getValue()));
+            }
+
+            int unreachable = graph.getStations().size() - layers.size();
+            if (unreachable > 0) {
+                System.out.println("  Unreachable : " + unreachable + " station(s) not connected to '" + start + "'.");
+            }
+
+            System.out.println("\nOpening LRT map window with BFS layers...");
+            LRTMapView.showBfsLayers(graph, layers, start);
         }
 
-        System.out.print("\nSearch again? (Y/N) : ");
+        System.out.print("\nTraverse again? (Y/N) : ");
         choice = s.next().charAt(0);
         s.nextLine();
         if (choice == 'Y' || choice == 'y') {
-            FindShortestRoute(s);
+            BfsTraversal(s);
         } else {
-            SearchMenu(s);
+            MainPage(s);
         }
     }
 
@@ -564,7 +469,7 @@ public class Main {
             System.out.println("\n    \uD83D\uDE86 Welcome to LRT Navigation System\n");
             System.out.println("--------------------------------------------");
             System.out.println("[1] Create Graph");
-            System.out.println("[2] Search for a LRT station");
+            System.out.println("[2] BFS traversal from a station");
             System.out.println("[3] View the LRT Map");
             System.out.println("[4] Exit");
             System.out.print("Enter your choice : ");
@@ -592,9 +497,9 @@ public class Main {
             case 2:
                 if (graph.getStations().isEmpty()) {
                     System.out.println("No stations yet — add some via 'Create Graph' first.");
+                    MainPage(s);
                 } else {
-                    SearchMenu(s);
-                    return;
+                    BfsTraversal(s);
                 }
                 break;
 
