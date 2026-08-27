@@ -172,7 +172,6 @@ public class LRTMapView extends Application {
             Line manualEdge = new Line(p1.x, p1.y, p2.x, p2.y);
             manualEdge.setStroke(Color.web(MANUAL_EDGE_COLOR));
             manualEdge.setStrokeWidth(2);
-            manualEdge.getStrokeDashArray().addAll(6.0, 6.0);
             root.getChildren().add(manualEdge);
         }
 
@@ -185,7 +184,6 @@ public class LRTMapView extends Application {
                 Line connector = new Line(p1.x, p1.y, p2.x, p2.y);
                 connector.setStroke(Color.web(INTERCHANGE_CONNECTOR_COLOR));
                 connector.setStrokeWidth(2);
-                connector.getStrokeDashArray().addAll(3.0, 4.0);
                 root.getChildren().add(connector);
             }
         }
@@ -249,7 +247,6 @@ public class LRTMapView extends Application {
             Line manualEdge = new Line(p1.x, p1.y, p2.x, p2.y);
             manualEdge.setStroke(Color.web(MANUAL_EDGE_COLOR));
             manualEdge.setStrokeWidth(2);
-            manualEdge.getStrokeDashArray().addAll(6.0, 6.0);
             root.getChildren().add(manualEdge);
         }
 
