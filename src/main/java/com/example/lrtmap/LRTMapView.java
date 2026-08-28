@@ -205,6 +205,7 @@ public class LRTMapView extends Application {
         LineLayoutResult layout = computeLinePositions(stations, BFS_LINE_COLUMN_SPACING, BFS_STATION_SPACING);
         Map<String, OccurrencePoint> unique = mergeDuplicateStations(layout);
         unique = spreadOverlappingStations(unique);
+        unique = unstickStationsFromForeignEdges(unique, layout);
 
         double maxX = layout.totalWidth;
         double maxY = layout.totalHeight;
@@ -338,6 +339,121 @@ public class LRTMapView extends Application {
             spread.put(names.get(i), new OccurrencePoint(xs[i], ys[i], colors[i]));
         }
         return spread;
+    }
+
+    private Map<String, OccurrencePoint> unstickStationsFromForeignEdges(
+            Map<String, OccurrencePoint> unique, LineLayoutResult layout) {
+        List<String> names = new ArrayList<>(unique.keySet());
+        int n = names.size();
+        if (n < 3) {
+            return unique;
+        }
+        double[] xs = new double[n];
+        double[] ys = new double[n];
+        String[] colors = new String[n];
+        Map<String, Integer> index = new HashMap<>();
+        for (int i = 0; i < n; i++) {
+            OccurrencePoint p = unique.get(names.get(i));
+            xs[i] = p.x;
+            ys[i] = p.y;
+            colors[i] = p.color;
+            index.put(names.get(i), i);
+        }
+        List<int[]> edges = new ArrayList<>();
+        for (LineRender lr : layout.lineRenders) {
+            for (int i = 0; i < lr.stationNames.size() - 1; i++) {
+                Integer a = index.get(lr.stationNames.get(i));
+                Integer b = index.get(lr.stationNames.get(i + 1));
+                if (a != null && b != null && !a.equals(b)) {
+                    edges.add(new int[]{a, b});
+                }
+            }
+        }
+        for (String[] edge : graphData.getEdges()) {
+            if (graphData.isLineInternalEdge(edge[0], edge[1])) {
+                continue;
+            }
+            Integer a = index.get(edge[0]);
+            Integer b = index.get(edge[1]);
+            if (a != null && b != null && !a.equals(b)) {
+                edges.add(new int[]{a, b});
+            }
+        }
+        final double clearance = 40;
+        final double minStationDist = 72;
+        for (int iter = 0; iter < 80; iter++) {
+            boolean moved = false;
+            for (int[] edge : edges) {
+                int a = edge[0];
+                int b = edge[1];
+                double x1 = xs[a];
+                double y1 = ys[a];
+                double x2 = xs[b];
+                double y2 = ys[b];
+                double edx = x2 - x1;
+                double edy = y2 - y1;
+                double len = Math.hypot(edx, edy);
+                if (len < 1) {
+                    continue;
+                }
+                double nx = -edy / len;
+                double ny = edx / len;
+                for (int c = 0; c < n; c++) {
+                    if (c == a || c == b) {
+                        continue;
+                    }
+                    double t = ((xs[c] - x1) * edx + (ys[c] - y1) * edy) / (len * len);
+                    if (t <= 0.1 || t >= 0.9) {
+                        continue;
+                    }
+                    double qx = x1 + t * edx;
+                    double qy = y1 + t * edy;
+                    double dist = Math.hypot(xs[c] - qx, ys[c] - qy);
+                    if (dist >= clearance) {
+                        continue;
+                    }
+                    double side = (xs[c] - x1) * nx + (ys[c] - y1) * ny;
+                    if (Math.abs(side) < 0.0001) {
+                        side = 1;
+                    }
+                    double push = clearance - dist + 3;
+                    xs[c] += nx * Math.signum(side) * push;
+                    ys[c] += ny * Math.signum(side) * push;
+                    moved = true;
+                }
+            }
+            for (int i = 0; i < n; i++) {
+                for (int j = i + 1; j < n; j++) {
+                    double dx = xs[j] - xs[i];
+                    double dy = ys[j] - ys[i];
+                    double dist = Math.hypot(dx, dy);
+                    if (dist < 0.5) {
+                        dx = 1;
+                        dist = 1;
+                    }
+                    if (dist < minStationDist) {
+                        double push = (minStationDist - dist) / 2;
+                        xs[i] -= dx / dist * push;
+                        ys[i] -= dy / dist * push;
+                        xs[j] += dx / dist * push;
+                        ys[j] += dy / dist * push;
+                        moved = true;
+                    }
+                }
+            }
+            for (int i = 0; i < n; i++) {
+                xs[i] = Math.max(LEFT_MARGIN - 20, xs[i]);
+                ys[i] = Math.max(TOP_MARGIN, ys[i]);
+            }
+            if (!moved) {
+                break;
+            }
+        }
+        Map<String, OccurrencePoint> result = new LinkedHashMap<>();
+        for (int i = 0; i < n; i++) {
+            result.put(names.get(i), new OccurrencePoint(xs[i], ys[i], colors[i]));
+        }
+        return result;
     }
 
     private boolean shouldPlaceLabelLeft(String station, OccurrencePoint p,
