@@ -209,26 +209,46 @@ public class LRTMapView extends Application {
         unique = spreadOverlappingStations(unique);
         unique = unstickStationsFromForeignEdges(unique, layout);
 
+        List<DrawnEdge> drawnEdges = collectBfsEdges(layout, unique);
+        markCrossingEdges(drawnEdges);
+
+        int bottomSlots = 0;
+        for (DrawnEdge edge : drawnEdges) {
+            if (edge.goBottom) {
+                edge.bottomSlot = bottomSlots++;
+            }
+        }
+
         double maxX = layout.totalWidth;
         double maxY = layout.totalHeight;
         for (OccurrencePoint p : unique.values()) {
             maxX = Math.max(maxX, p.x + 200);
             maxY = Math.max(maxY, p.y + TOP_MARGIN);
         }
+        double bottomBase = maxY + 36;
+        if (bottomSlots > 0) {
+            maxY = bottomBase + bottomSlots * 22 + 40;
+        }
         root.setPrefSize(maxX, maxY);
 
         drawBfsTitle(root, maxX);
 
-        for (LineRender lr : layout.lineRenders) {
-            for (int i = 0; i < lr.stationNames.size() - 1; i++) {
-                OccurrencePoint p1 = unique.get(lr.stationNames.get(i));
-                OccurrencePoint p2 = unique.get(lr.stationNames.get(i + 1));
-                if (p1 == null || p2 == null) continue;
-                Line segment = new Line(p1.x, p1.y, p2.x, p2.y);
-                segment.setStroke(Color.web(lr.color));
-                segment.setStrokeWidth(4);
-                root.getChildren().add(segment);
+        for (DrawnEdge edge : drawnEdges) {
+            if (!edge.goBottom) {
+                continue;
             }
+            double bottomY = bottomBase + edge.bottomSlot * 22;
+            drawBottomDetour(root, edge.p1, edge.p2, edge.color, edge.width, edge.dashed, bottomY);
+        }
+        for (DrawnEdge edge : drawnEdges) {
+            if (edge.goBottom) {
+                continue;
+            }
+            addLineSeg(root, edge.p1.x, edge.p1.y, edge.p2.x, edge.p2.y,
+                    edge.color, edge.width, edge.dashed);
+        }
+
+        for (LineRender lr : layout.lineRenders) {
             if (!lr.points.isEmpty()) {
                 Label lineLabel = new Label(lr.name);
                 lineLabel.setTextFill(Color.web(lr.color));
@@ -238,20 +258,6 @@ public class LRTMapView extends Application {
                 lineLabel.setLayoutY(first.y - 54);
                 root.getChildren().add(lineLabel);
             }
-        }
-
-        for (String[] edge : graphData.getEdges()) {
-            if (graphData.isLineInternalEdge(edge[0], edge[1])) {
-                continue;
-            }
-            OccurrencePoint p1 = unique.get(edge[0]);
-            OccurrencePoint p2 = unique.get(edge[1]);
-            if (p1 == null || p2 == null) continue;
-            Line manualEdge = new Line(p1.x, p1.y, p2.x, p2.y);
-            manualEdge.setStroke(Color.web(MANUAL_EDGE_COLOR));
-            manualEdge.setStrokeWidth(2);
-            manualEdge.getStrokeDashArray().addAll(6.0, 6.0);
-            root.getChildren().add(manualEdge);
         }
 
         for (Map.Entry<String, OccurrencePoint> entry : unique.entrySet()) {
@@ -265,6 +271,100 @@ public class LRTMapView extends Application {
         }
 
         return root;
+    }
+
+    private List<DrawnEdge> collectBfsEdges(LineLayoutResult layout, Map<String, OccurrencePoint> unique) {
+        List<DrawnEdge> edges = new ArrayList<>();
+        for (LineRender lr : layout.lineRenders) {
+            for (int i = 0; i < lr.stationNames.size() - 1; i++) {
+                String a = lr.stationNames.get(i);
+                String b = lr.stationNames.get(i + 1);
+                OccurrencePoint p1 = unique.get(a);
+                OccurrencePoint p2 = unique.get(b);
+                if (p1 == null || p2 == null) {
+                    continue;
+                }
+                edges.add(new DrawnEdge(a, b, p1, p2, lr.color, 4, false));
+            }
+        }
+        for (String[] edge : graphData.getEdges()) {
+            if (graphData.isLineInternalEdge(edge[0], edge[1])) {
+                continue;
+            }
+            OccurrencePoint p1 = unique.get(edge[0]);
+            OccurrencePoint p2 = unique.get(edge[1]);
+            if (p1 == null || p2 == null) {
+                continue;
+            }
+            edges.add(new DrawnEdge(edge[0], edge[1], p1, p2, MANUAL_EDGE_COLOR, 2, true));
+        }
+        return edges;
+    }
+
+    private void markCrossingEdges(List<DrawnEdge> edges) {
+        for (int i = 0; i < edges.size(); i++) {
+            DrawnEdge e1 = edges.get(i);
+            boolean spansColumns = Math.abs(e1.p1.x - e1.p2.x) > BFS_LINE_COLUMN_SPACING * 0.65;
+            if (spansColumns) {
+                e1.goBottom = true;
+            }
+            for (int j = i + 1; j < edges.size(); j++) {
+                DrawnEdge e2 = edges.get(j);
+                if (!properIntersect(e1, e2)) {
+                    continue;
+                }
+                e1.goBottom = true;
+                e2.goBottom = true;
+            }
+        }
+    }
+
+    private static boolean properIntersect(DrawnEdge e1, DrawnEdge e2) {
+        if (e1.a.equals(e2.a) || e1.a.equals(e2.b) || e1.b.equals(e2.a) || e1.b.equals(e2.b)) {
+            return false;
+        }
+        return segmentsIntersect(
+                e1.p1.x, e1.p1.y, e1.p2.x, e1.p2.y,
+                e2.p1.x, e2.p1.y, e2.p2.x, e2.p2.y);
+    }
+
+    private static boolean segmentsIntersect(
+            double ax, double ay, double bx, double by,
+            double cx, double cy, double dx, double dy) {
+        double d1 = cross(bx - ax, by - ay, cx - ax, cy - ay);
+        double d2 = cross(bx - ax, by - ay, dx - ax, dy - ay);
+        double d3 = cross(dx - cx, dy - cy, ax - cx, ay - cy);
+        double d4 = cross(dx - cx, dy - cy, bx - cx, by - cy);
+        return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0))
+                && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+    }
+
+    private static double cross(double x1, double y1, double x2, double y2) {
+        return x1 * y2 - y1 * x2;
+    }
+
+    private void drawBottomDetour(Pane root, OccurrencePoint p1, OccurrencePoint p2,
+                                  String color, double width, boolean dashed, double bottomY) {
+        double outward1 = (p1.x <= p2.x) ? -18 : 18;
+        double outward2 = (p2.x <= p1.x) ? -18 : 18;
+        double ox1 = p1.x + outward1;
+        double ox2 = p2.x + outward2;
+        addLineSeg(root, p1.x, p1.y, ox1, p1.y, color, width, dashed);
+        addLineSeg(root, ox1, p1.y, ox1, bottomY, color, width, dashed);
+        addLineSeg(root, ox1, bottomY, ox2, bottomY, color, width, dashed);
+        addLineSeg(root, ox2, bottomY, ox2, p2.y, color, width, dashed);
+        addLineSeg(root, ox2, p2.y, p2.x, p2.y, color, width, dashed);
+    }
+
+    private void addLineSeg(Pane root, double x1, double y1, double x2, double y2,
+                            String color, double width, boolean dashed) {
+        Line segment = new Line(x1, y1, x2, y2);
+        segment.setStroke(Color.web(color));
+        segment.setStrokeWidth(width);
+        if (dashed) {
+            segment.getStrokeDashArray().addAll(6.0, 6.0);
+        }
+        root.getChildren().add(segment);
     }
 
     private Map<String, OccurrencePoint> mergeDuplicateStations(LineLayoutResult layout) {
@@ -664,6 +764,29 @@ public class LRTMapView extends Application {
             this.occurrences = occurrences;
             this.totalWidth = totalWidth;
             this.totalHeight = totalHeight;
+        }
+    }
+
+    private static class DrawnEdge {
+        final String a;
+        final String b;
+        final OccurrencePoint p1;
+        final OccurrencePoint p2;
+        final String color;
+        final double width;
+        final boolean dashed;
+        boolean goBottom;
+        int bottomSlot;
+
+        DrawnEdge(String a, String b, OccurrencePoint p1, OccurrencePoint p2,
+                  String color, double width, boolean dashed) {
+            this.a = a;
+            this.b = b;
+            this.p1 = p1;
+            this.p2 = p2;
+            this.color = color;
+            this.width = width;
+            this.dashed = dashed;
         }
     }
 }
