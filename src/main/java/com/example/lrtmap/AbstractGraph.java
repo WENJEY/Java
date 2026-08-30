@@ -114,6 +114,26 @@ public abstract class AbstractGraph implements Graph {
     }
 
     @Override
+    public boolean removeLine(String lineName) {
+        List<String[]> edgesOnLine = lines.remove(lineName);
+        if (edgesOnLine == null) {
+            return false;
+        }
+        for (String[] edge : edgesOnLine) {
+            if (!isLineInternalEdge(edge[0], edge[1])) {
+                String actualA = resolveStationName(edge[0]);
+                String actualB = resolveStationName(edge[1]);
+                if (actualA == null || actualB == null) {
+                    continue;
+                }
+                adjacency.get(actualA).remove(actualB);
+                adjacency.get(actualB).remove(actualA);
+            }
+        }
+        return true;
+    }
+
+    @Override
     public Set<String> getLines() {
         return lines.keySet();
     }

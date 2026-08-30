@@ -24,6 +24,8 @@ public interface Graph {
 
     boolean addLine(String lineName);
 
+    boolean removeLine(String lineName);
+
     Set<String> getLines();
 
     boolean addEdgeToLine(String lineName, String a, String b);

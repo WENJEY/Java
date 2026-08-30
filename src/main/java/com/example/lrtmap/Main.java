@@ -128,6 +128,39 @@ public class Main {
         }
     }
 
+    private static String selectLine(Scanner s) {
+        List<String> lineNames = new ArrayList<>(graph.getLines());
+        if (lineNames.isEmpty()) {
+            System.out.println("No LRT line yet. Use 'Create Graph' -> 'Add a LRT Line' first!");
+            return null;
+        }
+
+        System.out.println("\nLRT Line：");
+        for (int i = 0; i < lineNames.size(); i++) {
+            System.out.printf("[%d] %s%n", i + 1, lineNames.get(i));
+        }
+        System.out.println("[0] Return to Main Page");
+
+        while (true) {
+            System.out.print("Select the LRT line to remove : ");
+            String input = s.nextLine().trim();
+
+            if (input.equals("0")) {
+                return null;
+            }
+
+            try {
+                int idx = Integer.parseInt(input);
+                if (idx >= 1 && idx <= lineNames.size()) {
+                    return lineNames.get(idx - 1);
+                }
+                System.out.println("Invalid selection! Please enter between 1 to " + lineNames.size() + " number or Enter 0 to return");
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input! Please enter the correct line index");
+            }
+        }
+    }
+
     private static String selectOrCreateLine(Scanner s) {
         List<String> lineNames = new ArrayList<>(graph.getLines());
 
@@ -359,6 +392,36 @@ public class Main {
         }
     }
 
+    public static void RemoveLRTLine(Scanner s) {
+        clearScreen();
+        char choice;
+        System.out.println("\n--------------------------------------------");
+        System.out.printf("%27s", "Remove LRT Line\n");
+        System.out.println("--------------------------------------------");
+        System.out.println("Press '0' to back to previous page");
+
+        String lineName = selectLine(s);
+        if (lineName == null) {
+            CreateGraph(s);
+            return;
+        }
+
+        System.out.print("Confirm to remove LRT line '" + lineName + "'? (Y/N) : ");
+        choice = s.next().charAt(0);
+        s.nextLine();
+        if (choice == 'Y' || choice == 'y') {
+            if (graph.removeLine(lineName)) {
+                System.out.println("LRT line '" + lineName + "' removed.");
+                saveGraph();
+            } else {
+                System.out.println("LRT line '" + lineName + "' does not exist.");
+            }
+            RemoveLRTLine(s);
+        } else {
+            CreateGraph(s);
+        }
+    }
+
     public static void BfsTraversal(Scanner s) {
         clearScreen();
         char choice;
@@ -414,21 +477,22 @@ public class Main {
             System.out.printf("%27s", "Create Graph\n");
             System.out.println("--------------------------------------------");
             System.out.println("[1] Add a LRT Line");
-            System.out.println("[2] Add a Station");
-            System.out.println("[3] Remove a Station");
-            System.out.println("[4] Add a Edge");
-            System.out.println("[5] Remove a Edge");
-            System.out.println("[6] Return to the main menu");
+            System.out.println("[2] Remove a LRT Line");
+            System.out.println("[3] Add a Station");
+            System.out.println("[4] Remove a Station");
+            System.out.println("[5] Add a Edge");
+            System.out.println("[6] Remove a Edge");
+            System.out.println("[7] Return to the main menu");
             System.out.print("Enter your choice : ");
 
             if (s.hasNextInt()) {
                 choice = s.nextInt();
                 s.nextLine();
 
-                if (choice >= 1 && choice <= 6) {
+                if (choice >= 1 && choice <= 7) {
                     break;
                 } else {
-                    System.out.println("Invalid selection! Please enter a number from 1 to 6.");
+                    System.out.println("Invalid selection! Please enter a number from 1 to 7.");
                 }
             } else {
                 System.out.println("Invalid input! Please enter numbers only.");
@@ -441,22 +505,25 @@ public class Main {
                 AddLRTLine(s);
                 break;
             case 2:
-                AddStation(s);
+                RemoveLRTLine(s);
                 break;
             case 3:
-                RemoveStation(s);
+                AddStation(s);
                 break;
             case 4:
-                AddEdge(s);
+                RemoveStation(s);
                 break;
             case 5:
-                RemoveEdge(s);
+                AddEdge(s);
                 break;
             case 6:
+                RemoveEdge(s);
+                break;
+            case 7:
                 MainPage(s);
                 break;
             default:
-                System.out.println("Please only enter number between 1 - 6.");
+                System.out.println("Please only enter number between 1 - 7.");
         }
     }
 
