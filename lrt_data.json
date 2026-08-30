@@ -21,7 +21,8 @@
     "Bukit Jalil",
     "IOI Puchong Jaya",
     "Pusat Puchong",
-    "Dato'Keramat"
+    "Dato'Keramat",
+    "hh"
   ],
   "lines": {
     "Puchong": {
@@ -65,10 +66,6 @@
         ["Taman Melati", "Wangsa Maju"],
         ["Wangsa Maju", "Dang Wangi"],
         ["Dang Wangi", "Ampang Park"]
-      ]
-    },
-    "Kampung": {
-      "edges": [
       ]
     }
   },
