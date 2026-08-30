@@ -85,7 +85,8 @@ public class Main {
             } catch (NumberFormatException e) {
                 String resolved = graph.resolveStationName(input);
                 if (resolved != null) {
-                    return resolved; // 用系统里实际存在的大小写版本，不是使用者打的原始输入
+                    return resolved;
+
                 }
                 System.out.println("Invalid input! Please enter the correct station index");
             }
@@ -288,11 +289,19 @@ public class Main {
             } else {
                 System.out.println("Station '" + stationRemoved + "' does not exist.");
             }
-            RemoveStation(s);
+            System.out.print("Continue? (Y/N) : ");
+            choice = s.next().charAt(0);
+            s.nextLine();
+            if (choice == 'Y' || choice == 'y') {
+                RemoveStation(s);
+            } else {
+                CreateGraph(s);
+            }
         } else {
             CreateGraph(s);
         }
     }
+
 
     public static void AddStation(Scanner s){
         clearScreen();
