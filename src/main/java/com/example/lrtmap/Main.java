@@ -207,14 +207,19 @@ public class Main {
         } else {
             System.out.printf("Could not remove edge: make sure both '%s' and '%s' exist.", edge[0], edge[1]);
         }
-
-        System.out.print("\nContinue? (Y/N) : ");
-        choice = s.next().charAt(0);
-        s.nextLine();
-        if (choice == 'Y' || choice == 'y') {
-            RemoveEdge(s);
-        } else {
-            CreateGraph(s);
+        while(true) {
+            System.out.print("\nContinue? (Y/N) : ");
+            choice = s.next().charAt(0);
+            s.nextLine();
+            if (choice == 'Y' || choice == 'y') {
+                RemoveEdge(s);
+                return;
+            } else if (choice == 'N' || choice == 'n'){
+                CreateGraph(s);
+                return;
+            } else{
+                System.out.println("Invalid input! Please enter Y/N!");
+            }
         }
     }
 
@@ -253,13 +258,19 @@ public class Main {
             System.out.printf("Could not add edge: make sure both '%s' and '%s' exist as stations, and this edge isn't already on '%s'.%n", station1, station2, lineName);
         }
 
-        System.out.print("Continue? (Y/N) : ");
-        choice = s.next().charAt(0);
-        s.nextLine();
-        if (choice == 'Y' || choice == 'y') {
-            AddEdge(s);
-        } else {
-            CreateGraph(s);
+        while(true) {
+            System.out.print("Continue? (Y/N) : ");
+            choice = s.next().charAt(0);
+            s.nextLine();
+            if (choice == 'Y' || choice == 'y') {
+                AddEdge(s);
+                return;
+            } else if (choice == 'N' || choice == 'n'){
+                CreateGraph(s);
+                return;
+            }else{
+                System.out.println("Invalid input! Please enter Y or N!");
+            }
         }
     }
 
@@ -278,27 +289,36 @@ public class Main {
             CreateGraph(s);
             return;
         }
-
-        System.out.print("Confirm to remove '"+ stationRemoved + "'? (Y/N) : ");
-        choice = s.next().charAt(0);
-        s.nextLine();
-        if (choice == 'Y' || choice == 'y') {
-            if (graph.removeStation(stationRemoved)) {
-                System.out.println("Station '" + stationRemoved + "' removed.");
-                saveGraph();
-            } else {
-                System.out.println("Station '" + stationRemoved + "' does not exist.");
-            }
-            System.out.print("Continue? (Y/N) : ");
+        while(true){
+            System.out.print("Confirm to remove '"+ stationRemoved + "'? (Y/N) : ");
             choice = s.next().charAt(0);
             s.nextLine();
             if (choice == 'Y' || choice == 'y') {
-                RemoveStation(s);
-            } else {
-                CreateGraph(s);
+                if (graph.removeStation(stationRemoved)) {
+                    System.out.println("Station '" + stationRemoved + "' removed.");
+                    saveGraph();
+                } else {
+                    System.out.println("Station '" + stationRemoved + "' does not exist.");
+                }
+                while(true) {
+                    System.out.print("Continue? (Y/N) : ");
+                    choice = s.next().charAt(0);
+                    s.nextLine();
+                    if (choice == 'Y' || choice == 'y') {
+                        RemoveStation(s);
+                        return;
+                    } else if (choice == 'N' || choice == 'n'){
+                        CreateGraph(s);
+                        return;
+                    } else{
+                        System.out.println("Invalid input! Please enter Y or N!");
+                    }
+                }
+            } else if (choice == 'N' || choice == 'n') {
+                CreateGraph(s); return;
+            } else{
+                System.out.println("Invalid input! Please enter Y or N!");
             }
-        } else {
-            CreateGraph(s);
         }
     }
 
@@ -326,13 +346,19 @@ public class Main {
             System.out.println("Station '" + station + "' already exists.");
         }
 
-        System.out.print("Continue? (Y/N) : ");
-        choice = s.next().charAt(0);
-        s.nextLine();
-        if (choice == 'Y' || choice == 'y'){
-            AddStation(s);
-        }else if (choice == 'N' || choice == 'n'){
-            CreateGraph(s);
+        while(true) {
+            System.out.print("Continue? (Y/N) : ");
+            choice = s.next().charAt(0);
+            s.nextLine();
+            if (choice == 'Y' || choice == 'y') {
+                AddStation(s);
+                return;
+            } else if (choice == 'N' || choice == 'n') {
+                CreateGraph(s);
+                return;
+            } else{
+                System.out.println("Invalid input! Please enter Y or N!");
+            }
         }
     }
 
@@ -358,13 +384,19 @@ public class Main {
             System.out.println("LRT line '" + lineName + "' already exists.");
         }
 
-        System.out.print("Continue? (Y/N) : ");
-        choice = s.next().charAt(0);
-        s.nextLine();
-        if (choice == 'Y' || choice == 'y') {
-            AddLRTLine(s);
-        } else {
-            CreateGraph(s);
+        while(true) {
+            System.out.print("Continue? (Y/N) : ");
+            choice = s.next().charAt(0);
+            s.nextLine();
+            if (choice == 'Y' || choice == 'y') {
+                AddLRTLine(s);
+                return;
+            } else if (choice == 'N' || choice == 'n'){
+                CreateGraph(s);
+                return;
+            } else{
+                System.out.println("Invalid input! Please enter Y or N!");
+            }
         }
     }
 
@@ -405,13 +437,19 @@ public class Main {
             LRTMapView.showBfsLayers(graph, layers, start);
         }
 
-        System.out.print("\nTraverse again? (Y/N) : ");
-        choice = s.next().charAt(0);
-        s.nextLine();
-        if (choice == 'Y' || choice == 'y') {
-            BfsTraversal(s);
-        } else {
-            MainPage(s);
+        while(true) {
+            System.out.print("\nTraverse again? (Y/N) : ");
+            choice = s.next().charAt(0);
+            s.nextLine();
+            if (choice == 'Y' || choice == 'y') {
+                BfsTraversal(s);
+                return;
+            } else if (choice == 'N' || choice == 'n'){
+                MainPage(s);
+                return;
+            } else{
+                System.out.println("Invalid input! Please enter Y or N!");
+            }
         }
     }
 
