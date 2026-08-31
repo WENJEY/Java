@@ -527,8 +527,8 @@ public class Main {
             System.out.println("[2] Remove a LRT Line");
             System.out.println("[3] Add a Station");
             System.out.println("[4] Remove a Station");
-            System.out.println("[5] Add a Edge");
-            System.out.println("[6] Remove a Edge");
+            System.out.println("[5] Add an Edge");
+            System.out.println("[6] Remove an Edge");
             System.out.println("[7] Return to the main menu");
             System.out.print("Enter your choice : ");
 
