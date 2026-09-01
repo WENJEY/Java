@@ -21,8 +21,7 @@
     "Bukit Jalil",
     "IOI Puchong Jaya",
     "Pusat Puchong",
-    "Dato'Keramat",
-    "hh"
+    "Dato'Keramat"
   ],
   "lines": {
     "Puchong": {
@@ -30,9 +29,7 @@
         ["Sungai Besi", "Bukit Jalil"],
         ["Bukit Jalil", "Sentul"],
         ["Sentul", "IOI Puchong Jaya"],
-        ["IOI Puchong Jaya", "Pusat Puchong"],
-        ["Pusat Puchong", "Dato'Keramat"],
-        ["Sungai Besi", "hh"]
+        ["IOI Puchong Jaya", "Pusat Puchong"]
       ]
     },
     "Sentul": {
@@ -60,7 +57,6 @@
         ["Damai", "Taman Bahagia"],
         ["Taman Bahagia", "Kelana Jaya"],
         ["Kelana Jaya", "Lembah Subang"],
-        ["Lembah Subang", "IOI Puchong Jaya"],
         ["IOI Puchong Jaya", "Pudu"]
       ]
     },
@@ -70,6 +66,10 @@
         ["Taman Melati", "Wangsa Maju"],
         ["Wangsa Maju", "Dang Wangi"],
         ["Dang Wangi", "Ampang Park"]
+      ]
+    },
+    "HHH": {
+      "edges": [
       ]
     }
   },
