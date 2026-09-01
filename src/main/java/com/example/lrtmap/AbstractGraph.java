@@ -157,9 +157,32 @@ public abstract class AbstractGraph implements Graph {
             }
         }
 
+        if (!canExtendLine(edgesOnLine, actualA, actualB)) {
+            return false;
+        }
+
         addEdge(actualA, actualB);
         edgesOnLine.add(new String[]{actualA, actualB});
         return true;
+    }
+
+    private boolean canExtendLine(List<String[]> edgesOnLine, String actualA, String actualB) {
+        if (actualA.equals(actualB)) {
+            return false;
+        }
+        if (edgesOnLine.isEmpty()) {
+            return true;
+        }
+        Map<String, Integer> degree = new LinkedHashMap<>();
+        for (String[] edge : edgesOnLine) {
+            degree.put(edge[0], degree.getOrDefault(edge[0], 0) + 1);
+            degree.put(edge[1], degree.getOrDefault(edge[1], 0) + 1);
+        }
+        boolean aOnLine = degree.containsKey(actualA);
+        boolean bOnLine = degree.containsKey(actualB);
+        boolean aIsEnd = aOnLine && degree.get(actualA) == 1;
+        boolean bIsEnd = bOnLine && degree.get(actualB) == 1;
+        return (aIsEnd && !bOnLine) || (bIsEnd && !aOnLine);
     }
 
     @Override

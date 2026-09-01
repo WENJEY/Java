@@ -30,7 +30,9 @@
         ["Sungai Besi", "Bukit Jalil"],
         ["Bukit Jalil", "Sentul"],
         ["Sentul", "IOI Puchong Jaya"],
-        ["IOI Puchong Jaya", "Pusat Puchong"]
+        ["IOI Puchong Jaya", "Pusat Puchong"],
+        ["Pusat Puchong", "Dato'Keramat"],
+        ["Sungai Besi", "hh"]
       ]
     },
     "Sentul": {
@@ -57,7 +59,9 @@
         ["Dang Wangi", "Damai"],
         ["Damai", "Taman Bahagia"],
         ["Taman Bahagia", "Kelana Jaya"],
-        ["Kelana Jaya", "Lembah Subang"]
+        ["Kelana Jaya", "Lembah Subang"],
+        ["Lembah Subang", "IOI Puchong Jaya"],
+        ["IOI Puchong Jaya", "Pudu"]
       ]
     },
     "Gombak": {
