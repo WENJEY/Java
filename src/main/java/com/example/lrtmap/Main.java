@@ -383,7 +383,9 @@ public class Main {
             return;
         }
 
-        if (graph.addStation(station)) {
+        if(station.trim().isEmpty()){
+            System.out.println("Station name cannot be empty");
+        }else if (graph.addStation(station)) {
             System.out.println("Station '" + station + "' added.");
             saveGraph();
         } else {
