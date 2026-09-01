@@ -423,7 +423,9 @@ public class Main {
             return;
         }
 
-        if (graph.addLine(lineName)) {
+        if(lineName.trim().isEmpty()){
+            System.out.println("Line name cannot be empty");
+        } else if (graph.addLine(lineName)) {
             System.out.println("LRT line '" + lineName + "' added.");
             saveGraph();
         } else {
