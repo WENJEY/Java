@@ -264,6 +264,13 @@ public class Main {
             return;
         }
 
+        List<String> existingOnLine = graph.getLineStations(lineName);
+        if (!existingOnLine.isEmpty()) {
+            System.out.println("Current stations on '" + lineName + "': " + String.join(" -> ", existingOnLine));
+            System.out.println("New edge must connect to an end of the line: "
+                    + existingOnLine.get(0) + " or " + existingOnLine.get(existingOnLine.size() - 1));
+        }
+
         String station1 = selectStation(s,"Please enter the first station number (Enter 0 to return to Main Page)\n");
         if (station1== null){
             CreateGraph(s);
@@ -282,7 +289,15 @@ public class Main {
             System.out.printf("There is now a LRT connection between %s and %s on line '%s'%n", station1, station2, lineName);
             saveGraph();
         } else {
-            System.out.printf("Could not add edge: make sure both '%s' and '%s' exist as stations, and this edge isn't already on '%s'.%n", station1, station2, lineName);
+            List<String> lineStations = graph.getLineStations(lineName);
+            if (lineStations.size() >= 2) {
+                String startEnd = lineStations.get(0);
+                String lastEnd = lineStations.get(lineStations.size() - 1);
+                System.out.printf("Could not add edge on '%s'. New edge must connect to an end of the line (%s or %s), not a station in the middle.%n",
+                        lineName, startEnd, lastEnd);
+            } else {
+                System.out.printf("Could not add edge: make sure both '%s' and '%s' exist as stations, and this edge isn't already on '%s'.%n", station1, station2, lineName);
+            }
         }
 
         System.out.print("Continue? (Y/N) : ");
